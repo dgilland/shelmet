@@ -3,9 +3,12 @@
 API Reference
 =============
 
-.. testsetup::
-
-    from shelmet import *
-
 
 .. automodule:: shelmet
+
+
+shelmet.sh
+----------
+
+.. automodule:: shelmet.sh
+    :members:
