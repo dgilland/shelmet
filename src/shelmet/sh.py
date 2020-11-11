@@ -10,7 +10,76 @@ import string
 import typing as t
 
 
+try:
+    import fcntl
+except ImportError:  # pragma: no cover
+    fcntl = None  # type: ignore
+
+
 T_PATHLIKE = t.Union[str, Path]
+
+
+@contextmanager
+def atomic_write(
+    file: T_PATHLIKE,
+    mode: str = "w",
+    skip_sync: bool = False,
+    overwrite: bool = True,
+    **open_kwargs: t.Any,
+) -> t.Iterator[t.IO]:
+    """
+    Context-manager similar to ``open()`` that is used to perform an atomic file write operation by
+    first writing to a temporary location in the same directory as the destination and then renaming
+    the file to the destination after all write operations are finished.
+
+    By default, this function will open a temporary file for writing in the same directory as the
+    destination. A file object will be returned by this context-manager just like ``open()`` would.
+    All file operations while the context-manager is opened will be performed on the temporary file.
+    Once the context-manager is closed, the temporary file will flushed and fsync'd (unless
+    ``skip_sync=True``). If the destination file exists, it will be overwritten unless
+    ``overwrite=False``.
+
+    Args:
+        file: File path to write to.
+        mode: File open mode.
+        skip_sync: Whether to skip calling ``fsync`` on file. Skipping this can help with
+            performance at the cost of durability.
+        overwrite: Whether to raise an exception if the destination file exists once the file is to
+            be written to its destination.
+        **open_kwargs: Additional keyword arguments to ``open()`` when creating the temporary write
+            file.
+    """
+    if isinstance(mode, str) and "x" in mode:
+        raise ValueError("Atomic write mode 'x' is not supported. Use 'overwrite=False' instead.")
+
+    if not isinstance(mode, str) or "w" not in mode:
+        raise ValueError(f"Invalid atomic write mode: {mode}")
+
+    dst = Path(file).absolute()
+    if dst.is_dir():
+        raise IsADirectoryError(errno.EISDIR, f"Atomic write file must not be a directory: {dst}")
+
+    mkdir(dst.parent)
+    tmp_file = _candidate_pathname(prefix=dst)
+
+    try:
+        with open(tmp_file, mode, **open_kwargs) as fp:
+            yield fp
+            if not skip_sync:
+                fsync(fp)
+
+        if overwrite:
+            os.rename(tmp_file, dst)
+        else:
+            # This will fail if dst exists.
+            os.link(tmp_file, dst)
+            rm(tmp_file)
+
+        if not skip_sync:
+            dirsync(dst.parent)
+    finally:
+        # In case something went wrong that prevented moving tmp_file to dst.
+        rm(tmp_file)
 
 
 @contextmanager
@@ -74,7 +143,7 @@ def cp(src: T_PATHLIKE, dst: T_PATHLIKE, follow_symlinks: bool = True) -> None:
     else:
         if dst.is_dir():
             dst = dst / src.name
-        tmp_dst = _candidate_filename(prefix=dst)
+        tmp_dst = _candidate_pathname(prefix=dst)
         shutil.copy2(src, tmp_dst, follow_symlinks=follow_symlinks)
         try:
             os.rename(tmp_dst, dst)
@@ -112,6 +181,53 @@ def environ(
     finally:
         os.environ.clear()
         os.environ.update(orig_env)
+
+
+def dirsync(path: T_PATHLIKE) -> None:
+    """
+    Force sync on directory.
+
+    Args:
+        path: Directory to sync.
+    """
+    fd = os.open(path, os.O_RDONLY)
+    try:
+        fsync(fd)
+    finally:
+        os.close(fd)
+
+
+def fsync(fd: t.Union[t.IO, int]) -> None:
+    """
+    Force write of file to disk.
+
+    The file descriptor will have ``os.fsync()`` (or ``fcntl.fcntl()`` with ``fcntl.F_FULLFSYNC``
+    if available) called on it. If a file object is passed it, then it will first be flushed before
+    synced.
+
+    Args:
+        fd: Either file descriptor integer or file object.
+    """
+    if (
+        not isinstance(fd, int)
+        and not (hasattr(fd, "fileno") and hasattr(fd, "flush"))
+        or isinstance(fd, bool)
+    ):
+        raise ValueError(
+            f"File descriptor must be a fileno integer or file-like object, not {type(fd)}"
+        )
+
+    if isinstance(fd, int):
+        fileno = fd
+    else:
+        fileno = fd.fileno()
+        fd.flush()
+
+    if hasattr(fcntl, "F_FULLFSYNC"):  # pragma: no cover
+        # Necessary for MacOS to do proper fsync: https://bugs.python.org/issue11877
+        fcntl.fcntl(fileno, fcntl.F_FULLFSYNC)  # pylint: disable=no-member
+    else:  # pragma: no cover
+        os.fsync(fileno)
 
 
 def getdirsize(path: T_PATHLIKE, pattern: str = "**/*") -> int:
@@ -186,10 +302,10 @@ def mv(src: T_PATHLIKE, dst: T_PATHLIKE) -> None:
     try:
         os.rename(src, dst)
     except OSError as exc:
-        # errno.EXDEV means we tried to move from one file-system to another which is not allowed.
-        # In that case, we'll fallback to a copy-and-delete approach instead.
         if exc.errno == errno.EXDEV:
-            tmp_dst = _candidate_filename(prefix=dst)
+            # errno.EXDEV means we tried to move from one file-system to another which is not
+            # allowed. In that case, we'll fallback to a copy-and-delete approach instead.
+            tmp_dst = _candidate_pathname(prefix=dst)
             try:
                 cp(src, tmp_dst)
                 os.rename(tmp_dst, dst)
@@ -263,7 +379,7 @@ def umask(mask: int = 0):
         os.umask(orig_mask)
 
 
-def _candidate_filename(prefix: T_PATHLIKE = "", suffix: T_PATHLIKE = "") -> str:
+def _candidate_pathname(prefix: T_PATHLIKE = "", suffix: T_PATHLIKE = "") -> str:
     tries = 100
     for _ in range(tries):
         filename = Path(_random_name(prefix=prefix, suffix=suffix))
@@ -277,7 +393,7 @@ def _candidate_filename(prefix: T_PATHLIKE = "", suffix: T_PATHLIKE = "") -> str
 def _random_name(prefix: T_PATHLIKE = "", suffix: T_PATHLIKE = "", length: int = 8) -> str:
     _pid, _random = getattr(_random_name, "_state", (None, None))
     if _pid != os.getpid() or not _random:
-        # Ensure separate processes don't share random generator.
+        # Ensure separate processes don't share same random generator.
         _random = random.Random()
         _random_name._state = (os.getpid(), _random)  # type: ignore
 

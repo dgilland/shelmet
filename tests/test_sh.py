@@ -1,3 +1,4 @@
+from contextlib import contextmanager
 import errno
 import os
 from pathlib import Path
@@ -13,6 +14,9 @@ from .utils import is_subdict
 
 
 parametrize = pytest.mark.parametrize
+
+
+USES_FCNTL_FULLSYNC = hasattr(sh.fcntl, "F_FULLFSYNC")
 
 
 class FakeFile:
@@ -113,6 +117,94 @@ class FakeDir:
             kwargs["path"] = dir
         kwargs["path"] = self.path / kwargs["path"]
         return FakeDir(**kwargs)
+
+
+@contextmanager
+def patch_os_fsync() -> t.Iterator[mock.MagicMock]:
+    if USES_FCNTL_FULLSYNC:
+        patched_os_fsync = mock.patch("fcntl.fcntl")
+    else:
+        patched_os_fsync = mock.patch("os.fsync")
+
+    with patched_os_fsync as mock_os_fsync:
+        yield mock_os_fsync
+
+
+@parametrize(
+    "opts",
+    [
+        param({}),
+        param({"overwrite": False}),
+        param({"skip_sync": True}),
+        param({"overwrite": False, "skip_sync": True}),
+    ],
+)
+def test_atomic_write(tmp_path: Path, opts: t.Dict[str, t.Any]):
+    file = tmp_path / "test.txt"
+    text = "test"
+
+    with sh.atomic_write(file, **opts) as fp:
+        assert not file.exists()
+        fp.write(text)
+        assert not file.exists()
+
+    assert file.exists()
+    assert file.read_text() == text
+
+
+def test_atomic_write__should_sync_new_file_and_dir(tmp_path: Path):
+    file = tmp_path / "test.txt"
+
+    with patch_os_fsync() as mock_os_fsync:
+        with sh.atomic_write(file) as fp:
+            fp.write("test")
+
+    assert mock_os_fsync.called
+    assert mock_os_fsync.call_count == 2
+
+
+def test_atomic_write__should_not_overwrite_when_disabled(tmp_path: Path):
+    file = tmp_path / "test.txt"
+    file.write_text("")
+
+    with pytest.raises(FileExistsError):
+        with sh.atomic_write(file, overwrite=False):
+            pass
+
+
+def test_atomic_write__should_fail_if_path_is_dir(tmp_path: Path):
+    already_exists_dir = tmp_path
+    with pytest.raises(IsADirectoryError):
+        with sh.atomic_write(already_exists_dir):
+            pass
+
+    will_exist_dir = tmp_path / "test"
+    with pytest.raises(IsADirectoryError):
+        with sh.atomic_write(will_exist_dir) as fp:
+            will_exist_dir.mkdir()
+            fp.write("test")
+
+
+@parametrize(
+    "mode",
+    [
+        param("r"),
+        param("r+"),
+        param("rb"),
+        param("rb+"),
+        param("a"),
+        param("a+"),
+        param("ab"),
+        param("ab+"),
+        param("x"),
+        param("x+"),
+        param(True),
+    ],
+)
+def test_atomic_write__should_raise_when_mode_invalid(tmp_path: Path, mode: t.Any):
+    with pytest.raises(ValueError):
+        with sh.atomic_write(tmp_path / "test.txt", mode):
+            pass
 
 
 @parametrize(
@@ -216,6 +308,16 @@ def test_cp__should_raise_when_copying_dir_to_existing_file(tmp_path: Path):
         sh.cp(src_dir, dst_file)
 
 
+def test_dirsync(tmp_path: Path):
+    path = tmp_path / "test"
+    path.mkdir()
+
+    with patch_os_fsync() as mock_os_fsync:
+        sh.dirsync(path)
+
+    assert mock_os_fsync.called
+
+
 @parametrize(
     "env",
     [
@@ -247,6 +349,48 @@ def test_environ__should_replace_envvars_and_replace_original(env: dict):
         assert env == envvars
         assert env == os.environ
     assert os.environ == orig_env
+
+
+def test_fsync__should_sync_file_object(tmp_path: Path):
+    file = tmp_path / "test.txt"
+
+    with file.open("w") as fp:
+        fp.write("test")
+        fileno = fp.fileno()
+        with mock.patch.object(fp, "flush") as mock_flush, patch_os_fsync() as mock_os_fsync:
+            sh.fsync(fp)
+
+    assert mock_flush.called
+    assert mock_os_fsync.called
+    assert mock_os_fsync.call_args[0][0] == fileno
+
+
+def test_fsync__should_sync_fileno(tmp_path: Path):
+    file = tmp_path / "test.txt"
+    file.write_text("test")
+
+    with file.open() as fp:
+        fileno = fp.fileno()
+        with patch_os_fsync() as mock_os_fsync:
+            sh.fsync(fileno)
+
+    assert mock_os_fsync.called
+    assert mock_os_fsync.call_args[0][0] == fileno
+
+
+@parametrize(
+    "arg",
+    [
+        param(1.1),
+        param(True),
+        param([]),
+        param({}),
+        param(set()),
+    ],
+)
+def test_fsync__should_raise_on_invalid_arg_type(arg):
+    with pytest.raises(ValueError):
+        sh.fsync(arg)
 
 
 @parametrize(
