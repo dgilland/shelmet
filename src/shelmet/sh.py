@@ -60,7 +60,7 @@ def atomic_write(
         raise IsADirectoryError(errno.EISDIR, f"Atomic write file must not be a directory: {dst}")
 
     mkdir(dst.parent)
-    tmp_file = _candidate_pathname(prefix=dst)
+    tmp_file = _candidate_temp_path(prefix=dst)
 
     try:
         with open(tmp_file, mode, **open_kwargs) as fp:
@@ -143,7 +143,7 @@ def cp(src: T_PATHLIKE, dst: T_PATHLIKE, follow_symlinks: bool = True) -> None:
     else:
         if dst.is_dir():
             dst = dst / src.name
-        tmp_dst = _candidate_pathname(prefix=dst)
+        tmp_dst = _candidate_temp_path(prefix=dst)
         shutil.copy2(src, tmp_dst, follow_symlinks=follow_symlinks)
         try:
             os.rename(tmp_dst, dst)
@@ -305,7 +305,7 @@ def mv(src: T_PATHLIKE, dst: T_PATHLIKE) -> None:
         if exc.errno == errno.EXDEV:
             # errno.EXDEV means we tried to move from one file-system to another which is not
             # allowed. In that case, we'll fallback to a copy-and-delete approach instead.
-            tmp_dst = _candidate_pathname(prefix=dst)
+            tmp_dst = _candidate_temp_path(prefix=dst)
             try:
                 cp(src, tmp_dst)
                 os.rename(tmp_dst, dst)
@@ -379,7 +379,7 @@ def umask(mask: int = 0):
         os.umask(orig_mask)
 
 
-def _candidate_pathname(prefix: T_PATHLIKE = "", suffix: T_PATHLIKE = "") -> str:
+def _candidate_temp_path(prefix: T_PATHLIKE = "", suffix: T_PATHLIKE = "") -> str:
     tries = 100
     for _ in range(tries):
         filename = Path(_random_name(prefix=prefix, suffix=suffix))
