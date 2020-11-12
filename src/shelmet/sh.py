@@ -383,6 +383,7 @@ def _candidate_temp_path(prefix: T_PATHLIKE = "", suffix: T_PATHLIKE = "") -> st
     tries = 100
     for _ in range(tries):
         filename = Path(_random_name(prefix=prefix, suffix=suffix))
+        filename = filename.parent / f".{filename.name}"
         if not filename.exists():
             return str(filename)
     raise FileNotFoundError(
