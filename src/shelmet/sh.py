@@ -60,7 +60,7 @@ def atomic_write(
         raise IsADirectoryError(errno.EISDIR, f"Atomic write file must not be a directory: {dst}")
 
     mkdir(dst.parent)
-    tmp_file = _candidate_temp_path(prefix=dst)
+    tmp_file = _candidate_temp_path(prefix=f"{dst}_", suffix=".tmp")
 
     try:
         with open(tmp_file, mode, **open_kwargs) as fp:
