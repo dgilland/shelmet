@@ -60,7 +60,7 @@ def atomic_write(
         raise IsADirectoryError(errno.EISDIR, f"Atomic write file must not be a directory: {dst}")
 
     mkdir(dst.parent)
-    tmp_file = _candidate_temp_path(prefix=f"{dst}_", suffix=".tmp")
+    tmp_file = _candidate_temp_path(path=dst, prefix="_", suffix=".tmp")
 
     try:
         with open(tmp_file, mode, **open_kwargs) as fp:
@@ -143,7 +143,7 @@ def cp(src: T_PATHLIKE, dst: T_PATHLIKE, follow_symlinks: bool = True) -> None:
     else:
         if dst.is_dir():
             dst = dst / src.name
-        tmp_dst = _candidate_temp_path(prefix=dst)
+        tmp_dst = _candidate_temp_path(path=dst, prefix="_")
         shutil.copy2(src, tmp_dst, follow_symlinks=follow_symlinks)
         try:
             os.rename(tmp_dst, dst)
@@ -305,7 +305,7 @@ def mv(src: T_PATHLIKE, dst: T_PATHLIKE) -> None:
         if exc.errno == errno.EXDEV:
             # errno.EXDEV means we tried to move from one file-system to another which is not
             # allowed. In that case, we'll fallback to a copy-and-delete approach instead.
-            tmp_dst = _candidate_temp_path(prefix=dst)
+            tmp_dst = _candidate_temp_path(path=dst, prefix="_")
             try:
                 cp(src, tmp_dst)
                 os.rename(tmp_dst, dst)
@@ -428,11 +428,14 @@ def umask(mask: int = 0):
         os.umask(orig_mask)
 
 
-def _candidate_temp_path(prefix: T_PATHLIKE = "", suffix: T_PATHLIKE = "") -> str:
+def _candidate_temp_path(
+    path: T_PATHLIKE = "", prefix: T_PATHLIKE = "", suffix: T_PATHLIKE = "", hidden: bool = True
+) -> str:
     tries = 100
     for _ in range(tries):
-        filename = Path(_random_name(prefix=prefix, suffix=suffix))
-        filename = filename.parent / f".{filename.name}"
+        filename = Path(_random_name(path=path, prefix=prefix, suffix=suffix))
+        if hidden:
+            filename = filename.parent / f".{filename.name}"
         if not filename.exists():
             return str(filename)
     raise FileNotFoundError(
@@ -440,7 +443,9 @@ def _candidate_temp_path(prefix: T_PATHLIKE = "", suffix: T_PATHLIKE = "") -> st
     )  # pragma: no cover
 
 
-def _random_name(prefix: T_PATHLIKE = "", suffix: T_PATHLIKE = "", length: int = 8) -> str:
+def _random_name(
+    path: T_PATHLIKE = "", prefix: T_PATHLIKE = "", suffix: T_PATHLIKE = "", length: int = 8
+) -> str:
     _pid, _random = getattr(_random_name, "_state", (None, None))
     if _pid != os.getpid() or not _random:
         # Ensure separate processes don't share same random generator.
@@ -448,4 +453,4 @@ def _random_name(prefix: T_PATHLIKE = "", suffix: T_PATHLIKE = "", length: int =
         _random_name._state = (os.getpid(), _random)  # type: ignore
 
     inner = "".join(_random.choice(string.ascii_letters) for _ in range(length))
-    return f"{prefix}{inner}{suffix}"
+    return f"{path}{prefix}{inner}{suffix}"
