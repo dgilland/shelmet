@@ -25,6 +25,9 @@ class FakeFile:
         self.size = size
         self.text = text
 
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}(path={self.path!r})"
+
     def write(self) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -55,6 +58,11 @@ class FakeDir:
         if files:
             self.files = [self.new_file(file) for file in files]
 
+    def __repr__(self) -> str:
+        return (
+            f"{self.__class__.__name__}(path={self.path!r}, files={self.files}, dirs={self.dirs})"
+        )
+
     def mkdir(
         self,
         files: t.Optional[t.Sequence[t.Union[FakeFile, str]]] = None,
@@ -79,6 +87,11 @@ class FakeDir:
             return self.add_file(item)
         else:
             return self.add_dir(item)
+
+    def add_all(
+        self, items: t.Sequence[t.Union[FakeFile, "FakeDir"]]
+    ) -> t.List[t.Union[FakeFile, "FakeDir"]]:
+        return [self.add(item) for item in items]
 
     def add_file(
         self, file: t.Union[FakeFile, str], size: int = 0, text: t.Optional[str] = None
@@ -113,6 +126,13 @@ class FakeDir:
         if isinstance(dir, FakeDir):
             kwargs["path"] = dir.path
             kwargs["files"] = dir.files
+            kwargs["dirs"] = dir.dirs
+
+            for f in kwargs["files"]:
+                f.path = f.path.relative_to(dir.path)
+
+            for d in kwargs["dirs"]:
+                d.path = d.path.relative_to(dir.path)
         else:
             kwargs["path"] = dir
         kwargs["path"] = self.path / kwargs["path"]
@@ -126,8 +146,8 @@ def patch_os_fsync() -> t.Iterator[mock.MagicMock]:
     else:
         patched_os_fsync = mock.patch("os.fsync")
 
-    with patched_os_fsync as mock_os_fsync:
-        yield mock_os_fsync
+    with patched_os_fsync as mocked_os_fsync:
+        yield mocked_os_fsync
 
 
 @parametrize(
@@ -155,12 +175,12 @@ def test_atomic_write(tmp_path: Path, opts: t.Dict[str, t.Any]):
 def test_atomic_write__should_sync_new_file_and_dir(tmp_path: Path):
     file = tmp_path / "test.txt"
 
-    with patch_os_fsync() as mock_os_fsync:
+    with patch_os_fsync() as mocked_os_fsync:
         with sh.atomic_write(file) as fp:
             fp.write("test")
 
-    assert mock_os_fsync.called
-    assert mock_os_fsync.call_count == 2
+    assert mocked_os_fsync.called
+    assert mocked_os_fsync.call_count == 2
 
 
 def test_atomic_write__should_not_overwrite_when_disabled(tmp_path: Path):
@@ -312,10 +332,10 @@ def test_dirsync(tmp_path: Path):
     path = tmp_path / "test"
     path.mkdir()
 
-    with patch_os_fsync() as mock_os_fsync:
+    with patch_os_fsync() as mocked_os_fsync:
         sh.dirsync(path)
 
-    assert mock_os_fsync.called
+    assert mocked_os_fsync.called
 
 
 @parametrize(
