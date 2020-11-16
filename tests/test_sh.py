@@ -1107,9 +1107,9 @@ def test_touch(tmp_path: Path, paths: t.List[str]):
 
 
 def test_umask(tmp_path: Path):
-    mode = 0o664  # -rw-rw-r-- (user,group = read-write, other = read)
-    umask = 0o22  # g-w,o-w (disallow writes for group and other)
-    expected_mode_with_umask = 0o644  # -rw-r--r-- (user = read-write, group,other = read)
+    mode = 0o644  # -rw-rw-r-- (user,group = read-write, other = read)
+    umask = 0o77  # g-rw,o-rw (disallow read-write for group and other)
+    expected_mode_with_umask = 0o600  # -rw------- (user = read-write, group,other = no-access)
 
     file_before_umask = tmp_path / "before"
     file_with_umask = tmp_path / "with"
