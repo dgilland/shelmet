@@ -23,6 +23,7 @@ T_PATHLIKE = t.Union[str, Path]
 def atomic_write(
     file: T_PATHLIKE,
     mode: str = "w",
+    *,
     skip_sync: bool = False,
     overwrite: bool = True,
     **open_kwargs: t.Any,
@@ -105,7 +106,7 @@ def cd(path: T_PATHLIKE) -> t.Iterator[None]:
             os.chdir(orig_cwd)
 
 
-def cp(src: T_PATHLIKE, dst: T_PATHLIKE, follow_symlinks: bool = True) -> None:
+def cp(src: T_PATHLIKE, dst: T_PATHLIKE, *, follow_symlinks: bool = True) -> None:
     """
 
     Args:
@@ -154,7 +155,7 @@ def cp(src: T_PATHLIKE, dst: T_PATHLIKE, follow_symlinks: bool = True) -> None:
 
 @contextmanager
 def environ(
-    env: t.Optional[t.Dict[str, str]] = None, replace: bool = False
+    env: t.Optional[t.Dict[str, str]] = None, *, replace: bool = False
 ) -> t.Iterator[t.Dict[str, str]]:
     """
     Context manager that updates environment variables with `env` on enter and restores the original
