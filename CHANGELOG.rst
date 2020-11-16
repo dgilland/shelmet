@@ -10,6 +10,9 @@ Changelog
   - ``environ``
   - ``fsync``
   - ``getdirsize``
+  - ``ls``
+  - ``lsdirs``
+  - ``lsfiles``
   - ``mkdir``
   - ``mv``
   - ``reljoin``
@@ -18,3 +21,6 @@ Changelog
   - ``rmfile``
   - ``touch``
   - ``umask``
+  - ``walk``
+  - ``walkdirs``
+  - ``walkfiles``
