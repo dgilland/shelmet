@@ -333,7 +333,12 @@ def rm(*paths: T_PATHLIKE) -> None:
     """
     Delete files and directories.
 
-    Note: Deleting non-existent files or directories does not raise an error.
+    Note:
+        Deleting non-existent files or directories does not raise an error.
+
+    Warning:
+        This function is like ``$ rm -rf`` so be careful. To limit the scope of the removal to just
+        files or just directories, use :func:`.rmfile` or :func:`.rmdir` respectively.
 
     Args:
         *paths: Files and/or directories to delete.
@@ -344,6 +349,50 @@ def rm(*paths: T_PATHLIKE) -> None:
                 shutil.rmtree(path)
             except NotADirectoryError:
                 os.remove(path)
+        except FileNotFoundError:
+            pass
+
+
+def rmdir(*dirs: T_PATHLIKE) -> None:
+    """
+    Delete directories.
+
+    Note:
+        Deleting non-existent directories does not raise an error.
+
+    Warning:
+        This function is like calling ``$ rm -rf`` on a directory. To limit the scope of the removal
+        to just files, use :func:`.rmfile`.
+
+    Args:
+        *dirs: Directories to delete.
+
+    Raises:
+        NotADirectoryError: When given path is not a directory.
+    """
+    for path in dirs:
+        try:
+            shutil.rmtree(path)
+        except FileNotFoundError:
+            pass
+
+
+def rmfile(*files: T_PATHLIKE) -> None:
+    """
+    Delete files.
+
+    Note:
+        Deleting non-existent files does not raise an error.
+
+    Args:
+        *files: Files to delete.
+
+    Raises:
+        IsADirectoryError: When given path is a directory.
+    """
+    for path in files:
+        try:
+            os.remove(path)
         except FileNotFoundError:
             pass
 
