@@ -1076,7 +1076,7 @@ def test_rmfile__should_raise_on_dir(tmp_path: Path):
     path = tmp_path / "test"
     path.mkdir()
 
-    with pytest.raises(IsADirectoryError):
+    with pytest.raises(OSError):
         sh.rmfile(path)
 
 
