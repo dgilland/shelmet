@@ -25,7 +25,7 @@ T_LS_FILTER = t.Union[T_LS_FILTERABLE, t.Iterable[T_LS_FILTERABLE]]
 
 
 @contextmanager
-def atomic_write(
+def atomicfile(
     file: T_PATHLIKE,
     mode: str = "w",
     *,
@@ -38,12 +38,11 @@ def atomic_write(
     first writing to a temporary location in the same directory as the destination and then renaming
     the file to the destination after all write operations are finished.
 
-    By default, this function will open a temporary file for writing in the same directory as the
-    destination. A file object will be returned by this context-manager just like ``open()`` would.
-    All file operations while the context-manager is opened will be performed on the temporary file.
-    Once the context-manager is closed, the temporary file will flushed and fsync'd (unless
-    ``skip_sync=True``). If the destination file exists, it will be overwritten unless
-    ``overwrite=False``.
+    This context-manager will open a temporary file for writing in the same directory as the
+    destination and yield a file object just like ``open()`` does. All file operations while the
+    context-manager is opened will be performed on the temporary file. Once the context-manager
+    exits, the temporary file will flushed and fsync'd (unless ``skip_sync=True``). If the
+    destination file exists, it will be overwritten unless ``overwrite=False``.
 
     Args:
         file: File path to write to.
@@ -56,17 +55,19 @@ def atomic_write(
             file.
     """
     if isinstance(mode, str) and "x" in mode:
-        raise ValueError("Atomic write mode 'x' is not supported. Use 'overwrite=False' instead.")
+        raise ValueError(
+            "Atomic file write mode 'x' is not supported. Use 'overwrite=False' instead."
+        )
 
     if not isinstance(mode, str) or "w" not in mode:
         raise ValueError(f"Invalid atomic write mode: {mode}")
 
     dst = Path(file).absolute()
     if dst.is_dir():
-        raise IsADirectoryError(errno.EISDIR, f"Atomic write file must not be a directory: {dst}")
+        raise IsADirectoryError(errno.EISDIR, f"Atomic file target must not be a directory: {dst}")
 
     mkdir(dst.parent)
-    tmp_file = _candidate_temp_path(path=dst, prefix="_", suffix=".tmp")
+    tmp_file = _candidate_temp_pathname(path=dst, prefix="_", suffix=".tmp")
 
     try:
         with open(tmp_file, mode, **open_kwargs) as fp:
@@ -149,7 +150,7 @@ def cp(src: T_PATHLIKE, dst: T_PATHLIKE, *, follow_symlinks: bool = True) -> Non
     else:
         if dst.is_dir():
             dst = dst / src.name
-        tmp_dst = _candidate_temp_path(path=dst, prefix="_")
+        tmp_dst = _candidate_temp_pathname(path=dst, prefix="_")
         shutil.copy2(src, tmp_dst, follow_symlinks=follow_symlinks)
         try:
             os.rename(tmp_dst, dst)
@@ -529,7 +530,7 @@ def mv(src: T_PATHLIKE, dst: T_PATHLIKE) -> None:
         if exc.errno == errno.EXDEV:
             # errno.EXDEV means we tried to move from one file-system to another which is not
             # allowed. In that case, we'll fallback to a copy-and-delete approach instead.
-            tmp_dst = _candidate_temp_path(path=dst, prefix="_")
+            tmp_dst = _candidate_temp_pathname(path=dst, prefix="_")
             try:
                 cp(src, tmp_dst)
                 os.rename(tmp_dst, dst)
@@ -756,7 +757,7 @@ def walkdirs(
     yield from walk(path, only_dirs=True, include=include, exclude=exclude)
 
 
-def _candidate_temp_path(
+def _candidate_temp_pathname(
     path: T_PATHLIKE = "", prefix: T_PATHLIKE = "", suffix: T_PATHLIKE = "", hidden: bool = True
 ) -> str:
     tries = 100

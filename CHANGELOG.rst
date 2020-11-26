@@ -2,6 +2,12 @@ Changelog
 =========
 
 
+vX.Y.Z (YYYY-MM-DD)
+-------------------
+
+- Rename ``atomic_write`` to ``atomicfile``. **breaking change**
+
+
 v0.1.0 (2020-11-16)
 -------------------
 

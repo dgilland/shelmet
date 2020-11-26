@@ -161,11 +161,11 @@ def patch_os_fsync() -> t.Iterator[mock.MagicMock]:
         param({"overwrite": False, "skip_sync": True}),
     ],
 )
-def test_atomic_write(tmp_path: Path, opts: t.Dict[str, t.Any]):
+def test_atomicfile(tmp_path: Path, opts: t.Dict[str, t.Any]):
     file = tmp_path / "test.txt"
     text = "test"
 
-    with sh.atomic_write(file, **opts) as fp:
+    with sh.atomicfile(file, **opts) as fp:
         assert not file.exists()
         fp.write(text)
         assert not file.exists()
@@ -174,35 +174,35 @@ def test_atomic_write(tmp_path: Path, opts: t.Dict[str, t.Any]):
     assert file.read_text() == text
 
 
-def test_atomic_write__should_sync_new_file_and_dir(tmp_path: Path):
+def test_atomicfile__should_sync_new_file_and_dir(tmp_path: Path):
     file = tmp_path / "test.txt"
 
     with patch_os_fsync() as mocked_os_fsync:
-        with sh.atomic_write(file) as fp:
+        with sh.atomicfile(file) as fp:
             fp.write("test")
 
     assert mocked_os_fsync.called
     assert mocked_os_fsync.call_count == 2
 
 
-def test_atomic_write__should_not_overwrite_when_disabled(tmp_path: Path):
+def test_atomicfile__should_not_overwrite_when_disabled(tmp_path: Path):
     file = tmp_path / "test.txt"
     file.write_text("")
 
     with pytest.raises(FileExistsError):
-        with sh.atomic_write(file, overwrite=False):
+        with sh.atomicfile(file, overwrite=False):
             pass
 
 
-def test_atomic_write__should_fail_if_path_is_dir(tmp_path: Path):
+def test_atomicfile__should_fail_if_path_is_dir(tmp_path: Path):
     already_exists_dir = tmp_path
     with pytest.raises(IsADirectoryError):
-        with sh.atomic_write(already_exists_dir):
+        with sh.atomicfile(already_exists_dir):
             pass
 
     will_exist_dir = tmp_path / "test"
     with pytest.raises(IsADirectoryError):
-        with sh.atomic_write(will_exist_dir) as fp:
+        with sh.atomicfile(will_exist_dir) as fp:
             will_exist_dir.mkdir()
             fp.write("test")
 
@@ -223,9 +223,9 @@ def test_atomic_write__should_fail_if_path_is_dir(tmp_path: Path):
         param(True),
     ],
 )
-def test_atomic_write__should_raise_when_mode_invalid(tmp_path: Path, mode: t.Any):
+def test_atomicfile__should_raise_when_mode_invalid(tmp_path: Path, mode: t.Any):
     with pytest.raises(ValueError):
-        with sh.atomic_write(tmp_path / "test.txt", mode):
+        with sh.atomicfile(tmp_path / "test.txt", mode):
             pass
 
 

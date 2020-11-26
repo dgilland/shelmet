@@ -106,7 +106,7 @@ Write to a file atomically where content is written to a temporary and then move
 
     import os
 
-    with sh.atomic_write("path/to/atomic.txt") as fp:
+    with sh.atomicfile("path/to/atomic.txt") as fp:
         # Writes are sent to a temporary file in the same directory as the destination.
         print(fp.name) # will be something like "path/to/.atomic.txt_XZKVqrlk.tmp"
         fp.write("some text")
@@ -118,10 +118,10 @@ Write to a file atomically where content is written to a temporary and then move
     assert os.path.exists("path/to/atomic.txt")
 
     # File mode, sync skipping, and overwrite flag can be specified to change the default behavior which is...
-    with sh.atomic_write("file.txt", "w", skip_sync=False, overwrite=True): pass
+    with sh.atomicfile("file.txt", "w", skip_sync=False, overwrite=True): pass
 
     # Additional parameters to open() can be passed as keyword arguments.
-    with sh.atomic_write("file.txt", "w", **open_kwargs): pass
+    with sh.atomicfile("file.txt", "w", **open_kwargs): pass
 
 
 Temporarily change environment variables:
