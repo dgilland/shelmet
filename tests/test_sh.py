@@ -185,6 +185,16 @@ def test_atomicfile__should_sync_new_file_and_dir(tmp_path: Path):
     assert mocked_os_fsync.call_count == 2
 
 
+def test_atomicfile__should_skip_sync_when_disabled(tmp_path: Path):
+    file = tmp_path / "test.txt"
+
+    with patch_os_fsync() as mocked_os_fsync:
+        with sh.atomicfile(file, skip_sync=True) as fp:
+            fp.write("test")
+
+    assert not mocked_os_fsync.called
+
+
 def test_atomicfile__should_not_overwrite_when_disabled(tmp_path: Path):
     file = tmp_path / "test.txt"
     file.write_text("")
