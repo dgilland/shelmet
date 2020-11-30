@@ -2,7 +2,7 @@ Changelog
 =========
 
 
-vX.Y.Z (YYYY-MM-DD)
+v0.2.0 (2020-11-30)
 -------------------
 
 - Add to ``sh`` module:
