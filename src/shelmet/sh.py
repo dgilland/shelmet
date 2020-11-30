@@ -25,6 +25,57 @@ T_LS_FILTER = t.Union[T_LS_FILTERABLE, t.Iterable[T_LS_FILTERABLE]]
 
 
 @contextmanager
+def atomicdir(
+    dir: T_PATHLIKE, *, skip_sync: bool = False, overwrite: bool = True
+) -> t.Iterator[Path]:
+    """
+    Context-manager that is used to atomically create a directory and its contents.
+
+    This context-manager will create a temporary directory in the same directory as the destination
+    and yield the temporary directory as a ``pathblib.Path`` object. All atomic file system updates
+    to the directory should then be done within the context-manager. Once the context-manager exits,
+    the temporary directory will be passed to :func:`dirsync` (unless ``skip_sync=True``) and then
+    moved to the destination followed by :func:`dirsync` on the parent directory. If the
+    destination directory exists, it will be overwritten unless ``overwrite=False``.
+
+    Args:
+        dir: Directory path to create.
+        skip_sync: Whether to skip calling :func:`dirsync` on the directory. Skipping this can help
+            with performance at the cost of durability.
+        overwrite: Whether to raise an exception if the destination exists once the directory is to
+            be moved to its destination.
+    """
+    dst = Path(dir).absolute()
+    if dst.is_file():
+        raise FileExistsError(errno.EEXIST, f"Atomic directory target must not be a file: {dst}")
+
+    tmp_dir = _candidate_temp_pathname(path=dst, prefix="_", suffix="_tmp")
+    mkdir(tmp_dir)
+
+    try:
+        yield Path(tmp_dir)
+
+        if not skip_sync:
+            dirsync(tmp_dir)
+
+        if overwrite:
+            rm(dst)
+        elif dst.exists():
+            raise FileExistsError(
+                errno.EEXIST,
+                f"Atomic directory target must not exist when overwrite disabled: {dst}",
+            )
+
+        os.rename(tmp_dir, dst)
+
+        if not skip_sync:
+            dirsync(dst)
+    finally:
+        # In case something went wrong that prevented moving tmp_dir to dst.
+        rm(tmp_dir)
+
+
+@contextmanager
 def atomicfile(
     file: T_PATHLIKE,
     mode: str = "w",
@@ -636,7 +687,7 @@ def touch(*paths: T_PATHLIKE) -> None:
 
 
 @contextmanager
-def umask(mask: int = 0):
+def umask(mask: int = 0) -> t.Iterator[None]:
     """
     Context manager that sets the umask to `mask` and restores it on exit.
 

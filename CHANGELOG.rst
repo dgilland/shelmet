@@ -5,6 +5,10 @@ Changelog
 vX.Y.Z (YYYY-MM-DD)
 -------------------
 
+- Add to ``sh`` module:
+
+  - ``atomicdir``
+
 - Rename ``atomic_write`` to ``atomicfile``. **breaking change**
 
 

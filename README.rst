@@ -100,7 +100,7 @@ Perform some file operations:
     sh.rm("a", "b", "c", "d")
 
 
-Write to a file atomically where content is written to a temporary and then moved once finished:
+Write to a new file atomically where content is written to a temporary and then moved once finished:
 
 .. code-block:: python
 
@@ -111,6 +111,8 @@ Write to a file atomically where content is written to a temporary and then move
         print(fp.name) # will be something like "path/to/.atomic.txt_XZKVqrlk.tmp"
         fp.write("some text")
         fp.write("some more text")
+
+        # File doesn't exist yet.
         assert not os.path.exists("path/to/atomic.txt")
 
     # Exiting context manager will result in the temporary file being atomically moved to destination.
@@ -122,6 +124,29 @@ Write to a file atomically where content is written to a temporary and then move
 
     # Additional parameters to open() can be passed as keyword arguments.
     with sh.atomicfile("file.txt", "w", **open_kwargs): pass
+
+
+Create a new directory atomically where its contents are written to a temporary directory and then moved once finished:
+
+.. code-block:: python
+
+    with sh.atomicdir("path/to/atomic_dir") as path:
+        # Yielded path is temporary directory within the same parent directory as the destination.
+        # path will be something like "path/to/.atomic_dir_QGLDfPwz_tmp"
+        some_file = path / "file.txt"
+        some_file.write_text("contents")  # file written to "path/to/.atomic_dir_QGLDfPwz_tmp/file.txt"
+
+        some_dir = path / "dir"
+        some_dir.mkdir()  # directory created at "path/to/.atomic_dir_QGLDfPwz_tmp/dir/"
+
+        # Directory doesn't exist yet.
+        assert not os.path.exists("path/to/atomic_dir")
+
+    # Exiting context manager will result in the temporary directory being atomically moved to destination.
+    assert os.path.exists("path/to/atomic_dir")
+
+    # Sync skipping and overwrite flag can be specified to change the default behavior which is...
+    with sh.atomicdir("atomic_dir", skip_sync=False, overwrite=True): pass
 
 
 Temporarily change environment variables:
