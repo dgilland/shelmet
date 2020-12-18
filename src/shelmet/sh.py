@@ -9,6 +9,7 @@ from pathlib import Path
 import random
 import shutil
 import string
+import subprocess
 import typing as t
 
 
@@ -22,6 +23,7 @@ T_PATHLIKE = t.Union[str, Path]
 T_LS_FILTER_FN = t.Callable[[Path], bool]
 T_LS_FILTERABLE = t.Union[str, t.Pattern, T_LS_FILTER_FN]
 T_LS_FILTER = t.Union[T_LS_FILTERABLE, t.Iterable[T_LS_FILTERABLE]]
+T_STD_FILE = t.Union[int, t.IO[t.Any]]
 
 
 @contextmanager
@@ -671,6 +673,129 @@ def rmfile(*files: T_PATHLIKE) -> None:
             os.remove(path)
         except FileNotFoundError:
             pass
+
+
+def run(
+    *args: t.Union[str, bytes, None, t.Iterable[t.Union[str, bytes, None]]],
+    stdin: t.Optional[T_STD_FILE] = None,
+    input: t.Optional[t.Union[str, bytes]] = None,
+    stdout: t.Optional[T_STD_FILE] = subprocess.PIPE,
+    stderr: t.Optional[T_STD_FILE] = subprocess.PIPE,
+    capture_output: bool = True,
+    cwd: t.Optional[T_PATHLIKE] = None,
+    timeout: t.Optional[t.Union[float, int]] = None,
+    check: bool = True,
+    encoding: t.Optional[str] = None,
+    errors: t.Optional[str] = None,
+    text: bool = True,
+    env: t.Optional[dict] = None,
+    replace_env: bool = False,
+    **popen_kwargs: t.Any,
+) -> subprocess.CompletedProcess:
+    """
+    Wrapper around ``subprocess.run`` that defaults to output capture, text-mode, and environment
+    variable extension instead of replacement with support for passing command arguments as a
+    variable number of strings instead of just a list of strings.
+
+    For the command arguments, they can be passed as either separate arguments or a list of
+    separate arguments (assuming ``shell=True`` is not used which is discouraged for most cases).
+
+    Example:
+
+    ::
+
+        # OK
+        run("ls", "-l", "-a")
+        run(["ls", "-l", "-a"])
+        run(["ls"], ["-l", "-a"])
+        run(["ls", "-l", "-a"])
+
+        # NOT OK
+        run("ls -l")
+        run(["ls -l"])
+
+    This function will capture stdout and stderr by default (i.e. they will be set in the returned
+    ``subprocess.CompletedProcess`` object. To disable this behavior, use ``capture_output=False``.
+    If just one of `stdout` or `stderr` should not be captured, then pass ``None`` as their value.
+
+    For the `env` argument, the default behavior of this function is to extend it with
+    ``os.environ`` instead of replacing the environment (i.e. ``env = {**os.environ, **envvars}``).
+    Use ``replace_env=True`` to make this function behave like ``subprocess.run``.
+
+    To execute this function with the default behavior of ``subprocess.run``, invoke it like the
+    following:
+
+    ::
+
+        run(["ls", "-la"], capture_output=False, text=False, replace_env=True)
+
+    Args:
+        *args: System command arguments to execute. If ``None`` is given as an argument value, it
+            will be discarded.
+        stdin: Specify the executed command’s standard input.
+        input: If given it will be passed to the underlying process as stdin. When used, stdin will
+            be set to ``PIPE`` automatically and cannot be used. The value will be encoded or
+            decoded automatically if it does not match the expected type based on whether text-mode
+            is enabled or not.
+        stdout: Specify the executed command’s standard output.
+        stderr: Specify the executed command’s standard error.
+        capture_output: Whether to capture stdout and stderr and include in the returned completed
+            process result.
+        cwd: Set the current working directory when executing the command.
+        timeout: If the timeout expires, the child process will be killed and waited for.
+        check: Whether to check return code and raise if it is non-zero.
+        encoding: Set encoding to use for text-mode.
+        errors: Specify how encoding and decoding errors should be handled. Must be one of "strict",
+            "ignore", "replace", "backslashreplace", "xmlcharrefreplace", "namereplace"
+        text: Set text-mode.
+        env: Environment variables for the new process. Unlike in ``subprocess.run``, the default
+            behavior is to extend the existing environment. Use ``replace_env=True`` to replace the
+            environment variables instead.
+        replace_env: Whether to replace the current environment when `env` given.
+
+    Keyword Args:
+        All other keyword arguments are passed to ``subprocess.run`` which subsequently passes them
+        to ``subprocess.Popen``.
+    """
+    if input:
+        # Coerce input based on text mode setting.
+        if text and isinstance(input, bytes):
+            input = input.decode()
+        elif not text and isinstance(input, str):
+            input = input.encode()
+
+    if not capture_output:
+        stdout = None
+        stderr = None
+
+    if env is not None and not replace_env:
+        env = {**os.environ, **env}
+
+    run_args = [arg for arg in _flatten(args) if arg is not None]
+
+    return subprocess.run(
+        run_args,
+        stdin=stdin,
+        input=input,
+        stdout=stdout,
+        stderr=stderr,
+        cwd=cwd,
+        timeout=timeout,
+        check=check,
+        encoding=encoding,
+        errors=errors,
+        text=text,
+        env=env,
+        **popen_kwargs,
+    )
+
+
+def _flatten(items):
+    for item in items:
+        if isinstance(item, Iterable) and not isinstance(item, (str, bytes)):
+            yield from item
+        else:
+            yield item
 
 
 def touch(*paths: T_PATHLIKE) -> None:
