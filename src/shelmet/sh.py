@@ -7,6 +7,7 @@ import fnmatch
 import os
 from pathlib import Path
 import random
+import shlex
 import shutil
 import string
 import subprocess
@@ -24,6 +25,172 @@ T_LS_FILTER_FN = t.Callable[[Path], bool]
 T_LS_FILTERABLE = t.Union[str, t.Pattern, T_LS_FILTER_FN]
 T_LS_FILTER = t.Union[T_LS_FILTERABLE, t.Iterable[T_LS_FILTERABLE]]
 T_STD_FILE = t.Union[int, t.IO[t.Any]]
+T_RUN_ARGS = t.Union[str, bytes, None, t.Iterable[t.Union[str, bytes, None]]]
+
+
+class Command:
+    """
+    A system command that can be executed multiple times and used to create piped commands.
+
+    This class accepts the same arguments as :func:`.run` which will be used as defaults when
+    calling the :meth:`run` method.
+
+    See Also: :func:`.run` for description of arguments.
+    """
+
+    def __init__(
+        self,
+        *args: T_RUN_ARGS,
+        stdin: t.Optional[T_STD_FILE] = None,
+        input: t.Optional[t.Union[str, bytes]] = None,
+        stdout: t.Optional[T_STD_FILE] = subprocess.PIPE,
+        stderr: t.Optional[T_STD_FILE] = subprocess.PIPE,
+        capture_output: bool = True,
+        cwd: t.Optional[T_PATHLIKE] = None,
+        timeout: t.Optional[t.Union[float, int]] = None,
+        check: bool = True,
+        encoding: t.Optional[str] = None,
+        errors: t.Optional[str] = None,
+        text: bool = True,
+        env: t.Optional[dict] = None,
+        replace_env: bool = False,
+        parent: t.Optional["Command"] = None,
+        **popen_kwargs: t.Any,
+    ):
+        self.args = _parse_run_args(args, error_prefix=f"{self.__class__.__name__}(): ")
+        self.stdin = stdin
+        self.input = input
+        self.stdout = stdout
+        self.stderr = stderr
+        self.capture_output = capture_output
+        self.cwd = cwd
+        self.timeout = timeout
+        self.check = check
+        self.encoding = encoding
+        self.errors = errors
+        self.text = text
+        self.env = env
+        self.replace_env = replace_env
+        self.popen_kwargs = popen_kwargs
+        self.parent = parent
+
+    @property
+    def parents(self) -> t.List["Command"]:
+        """Return list of parent :class:`Command` objects that pipe output into this command."""
+        parents = []
+        if self.parent:
+            grand_parents = self.parent.parents
+            if grand_parents:
+                parents.extend(grand_parents)
+            parents.append(self.parent)
+        return parents
+
+    @property
+    def shell_cmd(self) -> str:
+        """Return string version of command that would be used when executing from a shell."""
+        cmd = " ".join(
+            shlex.quote(arg.decode() if isinstance(arg, bytes) else arg) for arg in self.args
+        )
+        if self.parent:
+            cmd = f"{self.parent.shell_cmd} | {cmd}"
+        return cmd
+
+    def __repr__(self) -> str:
+        return self._format_repr(parents=self.parents)
+
+    def _format_repr(self, parents: t.Optional[t.List["Command"]] = None) -> str:
+        arg_list: t.List[t.Tuple[str, t.Any]] = [("args", self.args)]
+
+        if parents:
+            repr_parents = ", ".join(parent._format_repr() for parent in self.parents)
+            arg_list.append(("parents", f"[{repr_parents}]"))
+
+        arguments = ", ".join(f"{key}={value}" for key, value in arg_list)
+        return f"{self.__class__.__name__}({arguments})"
+
+    def pipe(
+        self,
+        *args: T_RUN_ARGS,
+        stdin: t.Optional[T_STD_FILE] = None,
+        input: t.Optional[t.Union[str, bytes]] = None,
+        stdout: t.Optional[T_STD_FILE] = subprocess.PIPE,
+        stderr: t.Optional[T_STD_FILE] = subprocess.PIPE,
+        capture_output: bool = True,
+        cwd: t.Optional[T_PATHLIKE] = None,
+        timeout: t.Optional[t.Union[float, int]] = None,
+        check: bool = True,
+        encoding: t.Optional[str] = None,
+        errors: t.Optional[str] = None,
+        text: bool = True,
+        env: t.Optional[dict] = None,
+        replace_env: bool = False,
+        **popen_kwargs: t.Any,
+    ) -> "Command":
+        """
+        Return a new command whose input will be piped from the output of this command.
+
+        See Also: :func:`.run` for description of keyword arguments.
+        """
+        return self.__class__(
+            *args,
+            stdin=stdin,
+            input=input,
+            stdout=stdout,
+            stderr=stderr,
+            capture_output=capture_output,
+            cwd=cwd,
+            timeout=timeout,
+            check=check,
+            encoding=encoding,
+            errors=errors,
+            text=text,
+            env=env,
+            replace_env=replace_env,
+            parent=self,
+            **popen_kwargs,
+        )
+
+    def run(self, *extra_run_args: T_RUN_ARGS, **run_kwargs: t.Any) -> subprocess.CompletedProcess:
+        """
+        Wrapper around :func:`.run` that uses this class' arguments.
+
+        If :attr:`parent` is set (i.e. if this command was created using :meth:`pipe`), then the
+        parent command will be called first and its output will be piped as this command's input.
+
+        Args:
+            *extra_run_args: Extend :attr:`args` with extra command arguments.
+            **run_kwargs: Override this command's keyword arguments.
+
+        See Also: :func:`.run` for description of keyword arguments.
+        """
+        run_args = self.args
+        if extra_run_args:
+            run_args = self.args + _parse_run_args(extra_run_args)
+
+        run_kwargs.setdefault("input", self.input)
+        run_kwargs.setdefault("stdin", self.stdin)
+        run_kwargs.setdefault("stdout", self.stdout)
+        run_kwargs.setdefault("stderr", self.stderr)
+        run_kwargs.setdefault("capture_output", self.capture_output)
+        run_kwargs.setdefault("cwd", self.cwd)
+        run_kwargs.setdefault("timeout", self.timeout)
+        run_kwargs.setdefault("check", self.check)
+        run_kwargs.setdefault("encoding", self.encoding)
+        run_kwargs.setdefault("errors", self.errors)
+        run_kwargs.setdefault("text", self.text)
+        run_kwargs.setdefault("env", self.env)
+        run_kwargs.setdefault("replace_env", self.replace_env)
+
+        for popen_key, popen_value in self.popen_kwargs.items():
+            run_kwargs.setdefault(popen_key, popen_value)
+
+        if self.parent:
+            parent_result = self.parent.run()
+            parent_output = parent_result.stdout
+            run_kwargs["input"] = parent_output
+            run_kwargs["stdin"] = None
+
+        return _run(run_args, **run_kwargs)
 
 
 @contextmanager
@@ -163,6 +330,47 @@ def cd(path: T_PATHLIKE) -> t.Iterator[None]:
     finally:
         if path:
             os.chdir(orig_cwd)
+
+
+def command(
+    *args: T_RUN_ARGS,
+    stdin: t.Optional[T_STD_FILE] = None,
+    input: t.Optional[t.Union[str, bytes]] = None,
+    stdout: t.Optional[T_STD_FILE] = subprocess.PIPE,
+    stderr: t.Optional[T_STD_FILE] = subprocess.PIPE,
+    capture_output: bool = True,
+    cwd: t.Optional[T_PATHLIKE] = None,
+    timeout: t.Optional[t.Union[float, int]] = None,
+    check: bool = True,
+    encoding: t.Optional[str] = None,
+    errors: t.Optional[str] = None,
+    text: bool = True,
+    env: t.Optional[dict] = None,
+    replace_env: bool = False,
+    **popen_kwargs: t.Any,
+) -> Command:
+    """
+    Factory that returns an instance of :class:`.Command` initialized with the given arguments.
+
+    See Also: :func:`.run` for description of arguments.
+    """
+    return Command(
+        *args,
+        stdin=stdin,
+        input=input,
+        stdout=stdout,
+        stderr=stderr,
+        capture_output=capture_output,
+        cwd=cwd,
+        timeout=timeout,
+        check=check,
+        encoding=encoding,
+        errors=errors,
+        text=text,
+        env=env,
+        replace_env=replace_env,
+        **popen_kwargs,
+    )
 
 
 def cp(src: T_PATHLIKE, dst: T_PATHLIKE, *, follow_symlinks: bool = True) -> None:
@@ -676,7 +884,7 @@ def rmfile(*files: T_PATHLIKE) -> None:
 
 
 def run(
-    *args: t.Union[str, bytes, None, t.Iterable[t.Union[str, bytes, None]]],
+    *args: T_RUN_ARGS,
     stdin: t.Optional[T_STD_FILE] = None,
     input: t.Optional[t.Union[str, bytes]] = None,
     stdout: t.Optional[T_STD_FILE] = subprocess.PIPE,
@@ -757,28 +965,14 @@ def run(
         All other keyword arguments are passed to ``subprocess.run`` which subsequently passes them
         to ``subprocess.Popen``.
     """
-    if input:
-        # Coerce input based on text mode setting.
-        if text and isinstance(input, bytes):
-            input = input.decode()
-        elif not text and isinstance(input, str):
-            input = input.encode()
-
-    if not capture_output:
-        stdout = None
-        stderr = None
-
-    if env is not None and not replace_env:
-        env = {**os.environ, **env}
-
-    run_args = [arg for arg in _flatten(args) if arg is not None]
-
-    return subprocess.run(
+    run_args = _parse_run_args(args)
+    return _run(
         run_args,
         stdin=stdin,
         input=input,
         stdout=stdout,
         stderr=stderr,
+        capture_output=capture_output,
         cwd=cwd,
         timeout=timeout,
         check=check,
@@ -786,11 +980,57 @@ def run(
         errors=errors,
         text=text,
         env=env,
+        replace_env=replace_env,
         **popen_kwargs,
     )
 
 
-def _flatten(items):
+def _parse_run_args(args: tuple, error_prefix: str = "run(): ") -> t.List[t.Union[str, bytes]]:
+    good_args = []
+    bad_args = []
+
+    for arg in _flatten(args):
+        if arg is None:
+            # Ignore None values.
+            continue
+        elif isinstance(arg, (str, bytes)):
+            good_args.append(arg)
+        else:
+            bad_args.append(arg)
+
+    if bad_args:
+        raise TypeError(
+            f"{error_prefix}requires all positional arguments to be either string or bytes, not"
+            f" {bad_args}"
+        )
+
+    if not good_args:
+        raise TypeError(f"{error_prefix}requires at least one non-empty positional argument")
+
+    return good_args
+
+
+def _run(args: t.List[t.Union[str, bytes]], **kwargs: t.Any) -> subprocess.CompletedProcess:
+    if kwargs.get("input") is not None:
+        # Coerce input based on text mode setting.
+        if kwargs.get("text") and isinstance(kwargs["input"], bytes):
+            kwargs["input"] = kwargs["input"].decode()
+        elif not kwargs.get("text") and isinstance(kwargs["input"], str):
+            kwargs["input"] = kwargs["input"].encode()
+
+    capture_output = kwargs.pop("capture_output", True)
+    if capture_output is False:
+        kwargs["stdout"] = None
+        kwargs["stderr"] = None
+
+    replace_env = kwargs.pop("replace_env", False)
+    if kwargs.get("env") is not None and not replace_env:
+        kwargs["env"] = {**os.environ, **kwargs["env"]}
+
+    return subprocess.run(args, **kwargs)
+
+
+def _flatten(items: t.Iterable) -> t.Generator[t.Any, None, None]:
     for item in items:
         if isinstance(item, Iterable) and not isinstance(item, (str, bytes)):
             yield from item

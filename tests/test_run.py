@@ -1,4 +1,5 @@
 import os
+import re
 import subprocess
 import typing as t
 from unittest import mock
@@ -139,3 +140,20 @@ def test_run__should_replace_env(mock_subprocess_run: mock.MagicMock):
     expected_call = run_call_args(["ls"], env=env)
     sh.run("ls", env=env, replace_env=True)
     assert mock_subprocess_run.call_args == expected_call
+
+
+@parametrize(
+    "args, exception, match",
+    [
+        param([], TypeError, "run(): requires at least one non-empty positional argument"),
+        param(
+            [None, None], TypeError, "run(): requires at least one non-empty positional argument"
+        ),
+        param(
+            [5], TypeError, "run(): requires all positional arguments to be either string or bytes"
+        ),
+    ],
+)
+def test_run__should_raise_on_bad_args(args: list, exception: t.Type[Exception], match: str):
+    with pytest.raises(exception, match=re.escape(match)):
+        sh.run(*args)

@@ -4,6 +4,8 @@ Changelog
 
 - Add to ``sh`` module:
 
+  - ``Command``
+  - ``command``
   - ``run``
 
 
