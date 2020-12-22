@@ -647,6 +647,11 @@ def getdirsize(path: T_PATHLIKE, pattern: str = "**/*") -> int:
     return total_size
 
 
+def homedir():
+    """Return current user's home directory as ``Path`` object."""
+    return Path.home()
+
+
 def ls(
     path: T_PATHLIKE = ".",
     *,

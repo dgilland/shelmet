@@ -7,6 +7,7 @@ Changelog
   - ``Command``
   - ``command``
   - ``cwd``
+  - ``homedir``
   - ``run``
 
 
