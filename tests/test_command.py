@@ -35,6 +35,7 @@ def run_call_args(
     **popen_kwargs,
 ):
     popen_kwargs.pop("capture_output", None)
+    popen_kwargs.pop("combine_output", None)
     popen_kwargs.pop("replace_env", None)
     return mock.call(
         args,
@@ -144,6 +145,12 @@ def test_command_repr(cmd, expected_repr):
         ),
         param(["ls"], {"stdout": None}, run_call_args(["ls"], stdout=None), id="no_capture_stdout"),
         param(["ls"], {"stderr": None}, run_call_args(["ls"], stderr=None), id="no_capture_stderr"),
+        param(
+            ["ls"],
+            {"combine_output": True},
+            run_call_args(["ls"], stderr=subprocess.STDOUT),
+            id="combine_output",
+        ),
         param(["ls"], {"text": False}, run_call_args(["ls"], text=False), id="no_text"),
         param(["ls"], {"input": "test"}, run_call_args(["ls"], input="test"), id="input_as_str"),
         param(

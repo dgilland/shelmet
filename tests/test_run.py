@@ -1,11 +1,7 @@
-import os
-import re
-import subprocess
 import typing as t
 from unittest import mock
 
 import pytest
-from pytest import param
 
 from shelmet import sh
 
@@ -27,6 +23,7 @@ def test_run__should_create_command_and_call_run(mock_command):
         "stdout": None,
         "stderr": None,
         "capture_output": False,
+        "combine_output": True,
         "cwd": "/",
         "timeout": 10,
         "check": False,

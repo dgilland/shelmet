@@ -69,6 +69,8 @@ class Command:
         stderr: Specify the executed command’s standard error.
         capture_output: Whether to capture stdout and stderr and include in the returned completed
             process result.
+        combine_output: Whether to combine stdout and stderr. Equilvalent to setting
+            ``stderr=subprocess.STDOUT``.
         cwd: Set the current working directory when executing the command.
         timeout: If the timeout expires, the child process will be killed and waited for.
         check: Whether to check return code and raise if it is non-zero.
@@ -94,6 +96,7 @@ class Command:
         stdout: t.Optional[T_STD_FILE] = subprocess.PIPE,
         stderr: t.Optional[T_STD_FILE] = subprocess.PIPE,
         capture_output: bool = True,
+        combine_output: bool = False,
         cwd: t.Optional[T_PATHLIKE] = None,
         timeout: t.Optional[t.Union[float, int]] = None,
         check: bool = True,
@@ -111,6 +114,7 @@ class Command:
         self.stdout = stdout
         self.stderr = stderr
         self.capture_output = capture_output
+        self.combine_output = combine_output
         self.cwd = cwd
         self.timeout = timeout
         self.check = check
@@ -164,6 +168,7 @@ class Command:
         stdout: t.Optional[T_STD_FILE] = subprocess.PIPE,
         stderr: t.Optional[T_STD_FILE] = subprocess.PIPE,
         capture_output: bool = True,
+        combine_output: bool = False,
         cwd: t.Optional[T_PATHLIKE] = None,
         timeout: t.Optional[t.Union[float, int]] = None,
         check: bool = True,
@@ -182,6 +187,7 @@ class Command:
             stdout=stdout,
             stderr=stderr,
             capture_output=capture_output,
+            combine_output=combine_output,
             cwd=cwd,
             timeout=timeout,
             check=check,
@@ -220,6 +226,7 @@ class Command:
         stdout = run_kwargs.pop("stdout", self.stdout)
         stderr = run_kwargs.pop("stderr", self.stderr)
         capture_output = run_kwargs.pop("capture_output", self.capture_output)
+        combine_output = run_kwargs.pop("combine_output", self.combine_output)
         cwd = run_kwargs.pop("cwd", self.cwd)
         timeout = run_kwargs.pop("timeout", self.timeout)
         check = run_kwargs.pop("check", self.check)
@@ -246,6 +253,9 @@ class Command:
         if not capture_output:
             stdout = None
             stderr = None
+
+        if combine_output:
+            stderr = subprocess.STDOUT
 
         if env and not replace_env:
             env = {**os.environ, **env}
@@ -446,6 +456,7 @@ def command(
     stdout: t.Optional[T_STD_FILE] = subprocess.PIPE,
     stderr: t.Optional[T_STD_FILE] = subprocess.PIPE,
     capture_output: bool = True,
+    combine_output: bool = False,
     cwd: t.Optional[T_PATHLIKE] = None,
     timeout: t.Optional[t.Union[float, int]] = None,
     check: bool = True,
@@ -469,6 +480,7 @@ def command(
         stdout=stdout,
         stderr=stderr,
         capture_output=capture_output,
+        combine_output=combine_output,
         cwd=cwd,
         timeout=timeout,
         check=check,
@@ -998,6 +1010,7 @@ def run(
     stdout: t.Optional[T_STD_FILE] = subprocess.PIPE,
     stderr: t.Optional[T_STD_FILE] = subprocess.PIPE,
     capture_output: bool = True,
+    combine_output: bool = False,
     cwd: t.Optional[T_PATHLIKE] = None,
     timeout: t.Optional[t.Union[float, int]] = None,
     check: bool = True,
@@ -1027,6 +1040,7 @@ def run(
         stdout=stdout,
         stderr=stderr,
         capture_output=capture_output,
+        combine_output=combine_output,
         cwd=cwd,
         timeout=timeout,
         check=check,
