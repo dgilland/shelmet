@@ -101,3 +101,4 @@ dmypy.json
 .project
 .pydevproject
 .idea
+.DS_Store
