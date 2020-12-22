@@ -6,6 +6,7 @@ Changelog
 
   - ``Command``
   - ``command``
+  - ``cwd``
   - ``run``
 
 

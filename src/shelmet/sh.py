@@ -540,6 +540,11 @@ def cp(src: T_PATHLIKE, dst: T_PATHLIKE, *, follow_symlinks: bool = True) -> Non
             raise
 
 
+def cwd() -> Path:
+    """Return current working directory as ``Path`` object."""
+    return Path.cwd()
+
+
 @contextmanager
 def environ(
     env: t.Optional[t.Dict[str, str]] = None, *, replace: bool = False
