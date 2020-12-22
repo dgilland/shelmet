@@ -100,7 +100,46 @@ Perform some file operations:
     sh.rm("a", "b", "c", "d")
 
 
-Write to a new file atomically where content is written to a temporary and then moved once finished:
+Run system commands:
+
+.. code-block:: python
+
+    # sh.run() is a wrapper around subprocess.run() that defaults to output capture, text-mode,
+    # exception raising on non-zero exit codes, environment variable extension instead of
+    # replacement, and support for passing command arguments as a variable number of strings instead
+    # of just a list of strings.
+    result = sh.run("ps", "aux")
+    print(result.stdout)
+    print(result.stderr)
+
+    # stdout and stderr can be combined with...
+    result = sh.run("some", "command", combine_output=True)
+
+    # or not captured at all...
+    sh.run(..., capture_output=False)
+
+
+Create reusable run commands that support piping:
+
+.. code-block:: python
+
+    # sh.command() returns a sh.Command object that can be used to execute a fixed command.
+    ps_aux = sh.command("ps", "aux")
+
+    # And has the option to pipe it's output into another command automatically.
+    grep_ps = ps_aux.pipe("grep", "-i", check=False)
+    print(grep_ps.shell_cmd)
+    # ps aux | grep -i
+
+    search_result_1 = grep_ps.run("search term 1")
+    print(search_result_1.stdout)
+
+    search_result_2 = grep_ps.run("search term 2")
+    print(search_result_2.stdout)
+
+
+
+Write to a new file atomically where content is written to a temporary file and then moved once finished:
 
 .. code-block:: python
 
