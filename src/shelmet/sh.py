@@ -32,10 +32,58 @@ class Command:
     """
     A system command that can be executed multiple times and used to create piped commands.
 
-    This class accepts the same arguments as :func:`.run` which will be used as defaults when
-    calling the :meth:`run` method.
+    Executing the command is done using :meth:`run` which is a wrapper around ``subprocess.run``.
+    However, the default arguments for a :class:`Command` enable different default behavior than
+    ``subprocess.run``:
 
-    See Also: :func:`.run` for description of arguments.
+    - Output is captured
+    - Text-mode is enabled
+    - Environment variables extend ``os.environ`` instead of replacing them.
+    - Exceptions are raised by default when the completed process returns a non-zero exit code.
+    - System command arguments can be passed as a var-args instead of just a list.
+
+    To disable output capture completely, use ``capture_output=False``. To disable output capture
+    for just one of them, set ``stdout`` or ``stderr`` to ``None``.
+
+    To disable ``os.environ`` extension, use ``replace_env=True``.
+
+    To disable exception raising, use ``check=False``.
+
+    Therefore, to use the default behavior of ``subprocess.run``, set the following keyword
+    arguments:
+
+    ::
+
+        ls = Command(["ls", "-la"], capture_output=False, text=False, check=False, replace_env=True)
+        ls.run()
+
+    Args:
+        *args: System command arguments to execute. If ``None`` is given as an argument value, it
+            will be discarded.
+        stdin: Specify the executed command’s standard input.
+        input: If given it will be passed to the underlying process as stdin. When used, stdin will
+            be set to ``PIPE`` automatically and cannot be used. The value will be encoded or
+            decoded automatically if it does not match the expected type based on whether text-mode
+            is enabled or not.
+        stdout: Specify the executed command’s standard output.
+        stderr: Specify the executed command’s standard error.
+        capture_output: Whether to capture stdout and stderr and include in the returned completed
+            process result.
+        cwd: Set the current working directory when executing the command.
+        timeout: If the timeout expires, the child process will be killed and waited for.
+        check: Whether to check return code and raise if it is non-zero.
+        encoding: Set encoding to use for text-mode.
+        errors: Specify how encoding and decoding errors should be handled. Must be one of "strict",
+            "ignore", "replace", "backslashreplace", "xmlcharrefreplace", "namereplace"
+        text: Set text-mode.
+        env: Environment variables for the new process. Unlike in ``subprocess.run``, the default
+            behavior is to extend the existing environment. Use ``replace_env=True`` to replace the
+            environment variables instead.
+        replace_env: Whether to replace the current environment when `env` given.
+
+    Keyword Args:
+        All other keyword arguments are passed to ``subprocess.run`` which subsequently passes them
+        to ``subprocess.Popen``.
     """
 
     def __init__(
@@ -126,11 +174,7 @@ class Command:
         replace_env: bool = False,
         **popen_kwargs: t.Any,
     ) -> "Command":
-        """
-        Return a new command whose input will be piped from the output of this command.
-
-        See Also: :func:`.run` for description of keyword arguments.
-        """
+        """Return a new command whose input will be piped from the output of this command."""
         return self.__class__(
             *args,
             stdin=stdin,
@@ -152,7 +196,11 @@ class Command:
 
     def run(self, *extra_run_args: T_RUN_ARGS, **run_kwargs: t.Any) -> subprocess.CompletedProcess:
         """
-        Wrapper around :func:`.run` that uses this class' arguments.
+        Wrapper around ``subprocess.run`` that uses this class' arguments as defaults.
+
+        To add additional command args to :attr:`args`, pass them as var-args.
+
+        To override default keyword arguments, pass them as keyword-args.
 
         If :attr:`parent` is set (i.e. if this command was created using :meth:`pipe`), then the
         parent command will be called first and its output will be piped as this command's input.
@@ -160,37 +208,96 @@ class Command:
         Args:
             *extra_run_args: Extend :attr:`args` with extra command arguments.
             **run_kwargs: Override this command's keyword arguments.
-
-        See Also: :func:`.run` for description of keyword arguments.
         """
         run_args = self.args
         if extra_run_args:
-            run_args = self.args + _parse_run_args(extra_run_args)
+            run_args = run_args + _parse_run_args(
+                extra_run_args, error_prefix=f"{self.__class__.__name__}.run(): "
+            )
 
-        run_kwargs.setdefault("input", self.input)
-        run_kwargs.setdefault("stdin", self.stdin)
-        run_kwargs.setdefault("stdout", self.stdout)
-        run_kwargs.setdefault("stderr", self.stderr)
-        run_kwargs.setdefault("capture_output", self.capture_output)
-        run_kwargs.setdefault("cwd", self.cwd)
-        run_kwargs.setdefault("timeout", self.timeout)
-        run_kwargs.setdefault("check", self.check)
-        run_kwargs.setdefault("encoding", self.encoding)
-        run_kwargs.setdefault("errors", self.errors)
-        run_kwargs.setdefault("text", self.text)
-        run_kwargs.setdefault("env", self.env)
-        run_kwargs.setdefault("replace_env", self.replace_env)
-
-        for popen_key, popen_value in self.popen_kwargs.items():
-            run_kwargs.setdefault(popen_key, popen_value)
+        input = run_kwargs.pop("input", self.input)
+        stdin = run_kwargs.pop("stdin", self.stdin)
+        stdout = run_kwargs.pop("stdout", self.stdout)
+        stderr = run_kwargs.pop("stderr", self.stderr)
+        capture_output = run_kwargs.pop("capture_output", self.capture_output)
+        cwd = run_kwargs.pop("cwd", self.cwd)
+        timeout = run_kwargs.pop("timeout", self.timeout)
+        check = run_kwargs.pop("check", self.check)
+        encoding = run_kwargs.pop("encoding", self.encoding)
+        errors = run_kwargs.pop("errors", self.errors)
+        text = run_kwargs.pop("text", self.text)
+        env = run_kwargs.pop("env", self.env)
+        replace_env = run_kwargs.pop("replace_env", self.replace_env)
+        popen_kwargs = {**self.popen_kwargs, **run_kwargs}
 
         if self.parent:
             parent_result = self.parent.run()
             parent_output = parent_result.stdout
-            run_kwargs["input"] = parent_output
-            run_kwargs["stdin"] = None
+            input = parent_output
+            stdin = None
 
-        return _run(run_args, **run_kwargs)
+        if input is not None:
+            # Coerce input based on text mode setting.
+            if text and isinstance(input, bytes):
+                input = input.decode()
+            elif not text and isinstance(input, str):
+                input = input.encode()
+
+        if not capture_output:
+            stdout = None
+            stderr = None
+
+        if env and not replace_env:
+            env = {**os.environ, **env}
+
+        return subprocess.run(
+            run_args,
+            stdin=stdin,
+            input=input,
+            stdout=stdout,
+            stderr=stderr,
+            cwd=cwd,
+            timeout=timeout,
+            check=check,
+            encoding=encoding,
+            errors=errors,
+            universal_newlines=text,  # NOTE: "text" argument doesn't exist in Python 3.6.
+            env=env,
+            **popen_kwargs,
+        )
+
+
+def _parse_run_args(args: tuple, error_prefix: str = "run(): ") -> t.List[t.Union[str, bytes]]:
+    good_args = []
+    bad_args = []
+
+    for arg in _flatten(args):
+        if arg is None:
+            # Ignore None values.
+            continue
+        elif isinstance(arg, (str, bytes)):
+            good_args.append(arg)
+        else:
+            bad_args.append(arg)
+
+    if bad_args:
+        raise TypeError(
+            f"{error_prefix}requires all positional arguments to be either string or bytes, not"
+            f" {bad_args}"
+        )
+
+    if not good_args:
+        raise TypeError(f"{error_prefix}requires at least one non-empty positional argument")
+
+    return good_args
+
+
+def _flatten(items: t.Iterable) -> t.Generator[t.Any, None, None]:
+    for item in items:
+        if isinstance(item, Iterable) and not isinstance(item, (str, bytes)):
+            yield from item
+        else:
+            yield item
 
 
 @contextmanager
@@ -352,7 +459,8 @@ def command(
     """
     Factory that returns an instance of :class:`.Command` initialized with the given arguments.
 
-    See Also: :func:`.run` for description of arguments.
+    See Also:
+        :class:`.Command` for description of arguments.
     """
     return Command(
         *args,
@@ -901,73 +1009,19 @@ def run(
     **popen_kwargs: t.Any,
 ) -> subprocess.CompletedProcess:
     """
-    Wrapper around ``subprocess.run`` that defaults to output capture, text-mode, and environment
-    variable extension instead of replacement with support for passing command arguments as a
-    variable number of strings instead of just a list of strings.
+    Convenience function-wrapper around :meth:`.Command.run`.
 
-    For the command arguments, they can be passed as either separate arguments or a list of
-    separate arguments (assuming ``shell=True`` is not used which is discouraged for most cases).
-
-    Example:
+    Using this function is equivalent to:
 
     ::
 
-        # OK
-        run("ls", "-l", "-a")
-        run(["ls", "-l", "-a"])
-        run(["ls"], ["-l", "-a"])
-        run(["ls", "-l", "-a"])
+        result = sh.command(*args, **kwargs).run()
 
-        # NOT OK
-        run("ls -l")
-        run(["ls -l"])
-
-    This function will capture stdout and stderr by default (i.e. they will be set in the returned
-    ``subprocess.CompletedProcess`` object. To disable this behavior, use ``capture_output=False``.
-    If just one of `stdout` or `stderr` should not be captured, then pass ``None`` as their value.
-
-    For the `env` argument, the default behavior of this function is to extend it with
-    ``os.environ`` instead of replacing the environment (i.e. ``env = {**os.environ, **envvars}``).
-    Use ``replace_env=True`` to make this function behave like ``subprocess.run``.
-
-    To execute this function with the default behavior of ``subprocess.run``, invoke it like the
-    following:
-
-    ::
-
-        run(["ls", "-la"], capture_output=False, text=False, replace_env=True)
-
-    Args:
-        *args: System command arguments to execute. If ``None`` is given as an argument value, it
-            will be discarded.
-        stdin: Specify the executed command’s standard input.
-        input: If given it will be passed to the underlying process as stdin. When used, stdin will
-            be set to ``PIPE`` automatically and cannot be used. The value will be encoded or
-            decoded automatically if it does not match the expected type based on whether text-mode
-            is enabled or not.
-        stdout: Specify the executed command’s standard output.
-        stderr: Specify the executed command’s standard error.
-        capture_output: Whether to capture stdout and stderr and include in the returned completed
-            process result.
-        cwd: Set the current working directory when executing the command.
-        timeout: If the timeout expires, the child process will be killed and waited for.
-        check: Whether to check return code and raise if it is non-zero.
-        encoding: Set encoding to use for text-mode.
-        errors: Specify how encoding and decoding errors should be handled. Must be one of "strict",
-            "ignore", "replace", "backslashreplace", "xmlcharrefreplace", "namereplace"
-        text: Set text-mode.
-        env: Environment variables for the new process. Unlike in ``subprocess.run``, the default
-            behavior is to extend the existing environment. Use ``replace_env=True`` to replace the
-            environment variables instead.
-        replace_env: Whether to replace the current environment when `env` given.
-
-    Keyword Args:
-        All other keyword arguments are passed to ``subprocess.run`` which subsequently passes them
-        to ``subprocess.Popen``.
+    See Also:
+        :class:`.Command` for description of arguments.
     """
-    run_args = _parse_run_args(args)
-    return _run(
-        run_args,
+    cmd = Command(
+        *args,
         stdin=stdin,
         input=input,
         stdout=stdout,
@@ -983,59 +1037,7 @@ def run(
         replace_env=replace_env,
         **popen_kwargs,
     )
-
-
-def _parse_run_args(args: tuple, error_prefix: str = "run(): ") -> t.List[t.Union[str, bytes]]:
-    good_args = []
-    bad_args = []
-
-    for arg in _flatten(args):
-        if arg is None:
-            # Ignore None values.
-            continue
-        elif isinstance(arg, (str, bytes)):
-            good_args.append(arg)
-        else:
-            bad_args.append(arg)
-
-    if bad_args:
-        raise TypeError(
-            f"{error_prefix}requires all positional arguments to be either string or bytes, not"
-            f" {bad_args}"
-        )
-
-    if not good_args:
-        raise TypeError(f"{error_prefix}requires at least one non-empty positional argument")
-
-    return good_args
-
-
-def _run(args: t.List[t.Union[str, bytes]], **kwargs: t.Any) -> subprocess.CompletedProcess:
-    if kwargs.get("input") is not None:
-        # Coerce input based on text mode setting.
-        if kwargs.get("text") and isinstance(kwargs["input"], bytes):
-            kwargs["input"] = kwargs["input"].decode()
-        elif not kwargs.get("text") and isinstance(kwargs["input"], str):
-            kwargs["input"] = kwargs["input"].encode()
-
-    capture_output = kwargs.pop("capture_output", True)
-    if capture_output is False:
-        kwargs["stdout"] = None
-        kwargs["stderr"] = None
-
-    replace_env = kwargs.pop("replace_env", False)
-    if kwargs.get("env") is not None and not replace_env:
-        kwargs["env"] = {**os.environ, **kwargs["env"]}
-
-    return subprocess.run(args, **kwargs)
-
-
-def _flatten(items: t.Iterable) -> t.Generator[t.Any, None, None]:
-    for item in items:
-        if isinstance(item, Iterable) and not isinstance(item, (str, bytes)):
-            yield from item
-        else:
-            yield item
+    return cmd.run()
 
 
 def touch(*paths: T_PATHLIKE) -> None:
