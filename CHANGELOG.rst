@@ -2,6 +2,9 @@ Changelog
 =========
 
 
+- Rename ``sh.command`` to ``sh.cmd``. **breaking change**
+
+
 v0.3.0 (2020-12-24)
 -------------------
 

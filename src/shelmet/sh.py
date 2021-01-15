@@ -449,7 +449,7 @@ def cd(path: T_PATHLIKE) -> t.Iterator[None]:
             os.chdir(orig_cwd)
 
 
-def command(
+def cmd(
     *args: T_RUN_ARGS,
     stdin: t.Optional[T_STD_FILE] = None,
     input: t.Optional[t.Union[str, bytes]] = None,
@@ -1038,7 +1038,7 @@ def run(
 
     ::
 
-        result = sh.command(*args, **kwargs).run()
+        result = sh.cmd(*args, **kwargs).run()
 
     See Also:
         :class:`.Command` for description of arguments.

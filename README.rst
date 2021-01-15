@@ -123,8 +123,8 @@ Create reusable run commands that support piping:
 
 .. code-block:: python
 
-    # sh.command() returns a sh.Command object that can be used to execute a fixed command.
-    ps_aux = sh.command("ps", "aux")
+    # sh.cmd() returns a sh.Command object that can be used to execute a fixed command.
+    ps_aux = sh.cmd("ps", "aux")
 
     # And has the option to pipe it's output into another command automatically.
     grep_ps = ps_aux.pipe("grep", "-i", check=False)

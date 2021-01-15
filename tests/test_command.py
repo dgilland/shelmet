@@ -56,7 +56,7 @@ def run_call_args(
 
 def test_command__should_return_command_object_with_defaults():
     args = ["ls", "-la"]
-    cmd = sh.command(*args)
+    cmd = sh.cmd(*args)
 
     assert cmd.args == args
     assert cmd.stdin is None
@@ -96,19 +96,19 @@ def test_command__should_return_command_object_with_defaults():
 )
 def test_command__should_raise_on_bad_args(args: list, exception: t.Type[Exception], match: str):
     with pytest.raises(exception, match=re.escape(match)):
-        sh.command(*args)
+        sh.cmd(*args)
 
 
 @parametrize(
     "cmd, expected_repr",
     [
-        param(sh.command("ls", "-la"), "Command(args=['ls', '-la'])"),
+        param(sh.cmd("ls", "-la"), "Command(args=['ls', '-la'])"),
         param(
-            sh.command("ls", "-la").pipe("grep", "foo"),
+            sh.cmd("ls", "-la").pipe("grep", "foo"),
             "Command(args=['grep', 'foo'], parents=[Command(args=['ls', '-la'])])",
         ),
         param(
-            sh.command("cmd1").pipe("cmd2").pipe("cmd3"),
+            sh.cmd("cmd1").pipe("cmd2").pipe("cmd3"),
             "Command(args=['cmd3'], parents=[Command(args=['cmd1']), Command(args=['cmd2'])])",
         ),
     ],
@@ -217,34 +217,34 @@ def test_command_run__should_replace_env(mock_subprocess_run: mock.MagicMock):
 @parametrize(
     "cmd, extra_args, overrides, expected_call",
     [
-        param(sh.command("ls"), ["-l", "-a"], {}, run_call_args(["ls", "-l", "-a"])),
+        param(sh.cmd("ls"), ["-l", "-a"], {}, run_call_args(["ls", "-l", "-a"])),
         param(
-            sh.command("ls"),
+            sh.cmd("ls"),
             [],
             {"env": {"A": "B"}, "replace_env": True},
             run_call_args(["ls"], env={"A": "B"}),
         ),
-        param(sh.command("ls"), [], {"cwd": "/tmp"}, run_call_args(["ls"], cwd="/tmp")),
+        param(sh.cmd("ls"), [], {"cwd": "/tmp"}, run_call_args(["ls"], cwd="/tmp")),
         param(
-            sh.command("ls"),
+            sh.cmd("ls"),
             [],
             {"stdin": subprocess.PIPE, "stdout": None, "stderr": None},
             run_call_args(["ls"], stdin=subprocess.PIPE, stdout=None, stderr=None),
         ),
         param(
-            sh.command("ls"),
+            sh.cmd("ls"),
             [],
             {"capture_output": False},
             run_call_args(["ls"], stdout=None, stderr=None),
         ),
         param(
-            sh.command("ls"),
+            sh.cmd("ls"),
             [],
             {"input": "test", "timeout": 10},
             run_call_args(["ls"], input="test", timeout=10),
         ),
         param(
-            sh.command("ls"),
+            sh.cmd("ls"),
             [],
             {"encoding": "utf-8", "errors": "ignore", "text": False},
             run_call_args(["ls"], encoding="utf-8", errors="ignore", text=False),
@@ -260,7 +260,7 @@ def test_command_run__should_override_defaults(
 
 
 def test_command_run__should_call_parent_command_run(mock_subprocess_run):
-    cmd = sh.command("cmd1").pipe("cmd2").pipe("cmd3")
+    cmd = sh.cmd("cmd1").pipe("cmd2").pipe("cmd3")
     cmd.run()
 
     assert len(mock_subprocess_run.call_args_list) == 3
@@ -274,7 +274,7 @@ def test_command_run__should_pipe_parent_stdout_to_child(mock_subprocess_run):
     cmd1_stdout = "cmd1_stdout"
     mock_subprocess_run().stdout = cmd1_stdout
 
-    cmd = sh.command("cmd1").pipe("cmd2")
+    cmd = sh.cmd("cmd1").pipe("cmd2")
     cmd.run()
 
     call_cmd2 = mock_subprocess_run.call_args_list[-1]
@@ -283,7 +283,7 @@ def test_command_run__should_pipe_parent_stdout_to_child(mock_subprocess_run):
 
 
 def test_command_pipe__should_set_parent():
-    cmd1 = sh.command("cmd1")
+    cmd1 = sh.cmd("cmd1")
     cmd2 = cmd1.pipe("cmd2")
     cmd3 = cmd2.pipe("cmd3")
     cmd4 = cmd3.pipe("cmd4")
@@ -294,7 +294,7 @@ def test_command_pipe__should_set_parent():
 
 
 def test_command_pipe__should_return_child_command():
-    parent = sh.command("parent")
+    parent = sh.cmd("parent")
     child_kwargs = {
         "stdin": None,
         "input": "test",
@@ -323,10 +323,10 @@ def test_command_pipe__should_return_child_command():
 @parametrize(
     "cmd, expected_shell_cmd",
     [
-        param(sh.command("ls"), "ls"),
-        param(sh.command("ps").pipe("grep", "foo bar"), "ps | grep 'foo bar'"),
+        param(sh.cmd("ls"), "ls"),
+        param(sh.cmd("ps").pipe("grep", "foo bar"), "ps | grep 'foo bar'"),
         param(
-            sh.command("ps").pipe("grep", "foo bar").pipe("grep", "test"),
+            sh.cmd("ps").pipe("grep", "foo bar").pipe("grep", "test"),
             "ps | grep 'foo bar' | grep test",
         ),
     ],
