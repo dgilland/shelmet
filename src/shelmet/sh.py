@@ -1,5 +1,6 @@
 """The sh module contains utilities for interacting with files, directories, and the file system."""
 
+from abc import ABCMeta, abstractmethod
 from collections.abc import Iterable
 from contextlib import contextmanager
 import errno
@@ -105,10 +106,26 @@ class Command:
         text: bool = True,
         env: t.Optional[dict] = None,
         replace_env: bool = False,
-        parent: t.Optional["Command"] = None,
+        parent: t.Optional["ChainCommand"] = None,
         **popen_kwargs: t.Any,
     ):
-        self.args = _parse_run_args(args, error_prefix=f"{self.__class__.__name__}(): ")
+        run_args = _parse_run_args(args, error_prefix=f"{self.__class__.__name__}(): ")
+
+        if input is not None:
+            # Coerce input based on text mode setting.
+            if text and isinstance(input, bytes):
+                input = input.decode()
+            elif not text and isinstance(input, str):
+                input = input.encode()
+
+        if not capture_output:
+            stdout = None
+            stderr = None
+
+        if combine_output:
+            stderr = subprocess.STDOUT
+
+        self.args = run_args
         self.stdin = stdin
         self.input = input
         self.stdout = stdout
@@ -127,11 +144,11 @@ class Command:
         self.parent = parent
 
     @property
-    def parents(self) -> t.List["Command"]:
+    def parents(self) -> t.List["ChainCommand"]:
         """Return list of parent :class:`Command` objects that pipe output into this command."""
         parents = []
         if self.parent:
-            grand_parents = self.parent.parents
+            grand_parents = self.parent.command.parents
             if grand_parents:
                 parents.extend(grand_parents)
             parents.append(self.parent)
@@ -144,21 +161,45 @@ class Command:
             shlex.quote(arg.decode() if isinstance(arg, bytes) else arg) for arg in self.args
         )
         if self.parent:
-            cmd = f"{self.parent.shell_cmd} | {cmd}"
+            cmd = f"{self.parent.shell_cmd} {cmd}"
         return cmd
 
     def __repr__(self) -> str:
-        return self._format_repr(parents=self.parents)
+        kv_items: t.List[t.Tuple[str, t.Any]] = [("args", self.args)]
 
-    def _format_repr(self, parents: t.Optional[t.List["Command"]] = None) -> str:
-        arg_list: t.List[t.Tuple[str, t.Any]] = [("args", self.args)]
-
+        parents = self.parents
         if parents:
-            repr_parents = ", ".join(parent._format_repr() for parent in self.parents)
-            arg_list.append(("parents", f"[{repr_parents}]"))
+            repr_parents = ", ".join(repr(parent) for parent in self.parents)
+            kv_items.append(("parents", f"[{repr_parents}]"))
 
-        arguments = ", ".join(f"{key}={value}" for key, value in arg_list)
-        return f"{self.__class__.__name__}({arguments})"
+        kv_out = ", ".join(f"{key}={value}" for key, value in kv_items)
+        return f"{self.__class__.__name__}({kv_out})"
+
+    @classmethod
+    def from_command(cls, command, *extra_args: T_RUN_ARGS, **override_kwargs: t.Any) -> "Command":
+        run_args = command.args
+        if extra_args:
+            run_args = run_args + _parse_run_args(
+                extra_args, error_prefix=f"{cls.__name__}.run(): "
+            )
+
+        override_kwargs.setdefault("input", command.input)
+        override_kwargs.setdefault("stdin", command.stdin)
+        override_kwargs.setdefault("stdout", command.stdout)
+        override_kwargs.setdefault("stderr", command.stderr)
+        override_kwargs.setdefault("capture_output", command.capture_output)
+        override_kwargs.setdefault("combine_output", command.combine_output)
+        override_kwargs.setdefault("cwd", command.cwd)
+        override_kwargs.setdefault("timeout", command.timeout)
+        override_kwargs.setdefault("check", command.check)
+        override_kwargs.setdefault("encoding", command.encoding)
+        override_kwargs.setdefault("errors", command.errors)
+        override_kwargs.setdefault("text", command.text)
+        override_kwargs.setdefault("env", command.env)
+        override_kwargs.setdefault("replace_env", command.replace_env)
+        override_kwargs.update(command.popen_kwargs)
+
+        return cls(*run_args, **override_kwargs)
 
     def pipe(
         self,
@@ -179,7 +220,11 @@ class Command:
         replace_env: bool = False,
         **popen_kwargs: t.Any,
     ) -> "Command":
-        """Return a new command whose input will be piped from the output of this command."""
+        """
+        Return a new command whose input will be piped from the output of this command.
+
+        This is like running "<this-command> | <next-command>".
+        """
         return self.__class__(
             *args,
             stdin=stdin,
@@ -196,11 +241,144 @@ class Command:
             text=text,
             env=env,
             replace_env=replace_env,
-            parent=self,
+            parent=PipeCommand(self),
             **popen_kwargs,
         )
 
-    def run(self, *extra_run_args: T_RUN_ARGS, **run_kwargs: t.Any) -> subprocess.CompletedProcess:
+    def after(
+        self,
+        *args: T_RUN_ARGS,
+        stdin: t.Optional[T_STD_FILE] = None,
+        input: t.Optional[t.Union[str, bytes]] = None,
+        stdout: t.Optional[T_STD_FILE] = subprocess.PIPE,
+        stderr: t.Optional[T_STD_FILE] = subprocess.PIPE,
+        capture_output: bool = True,
+        combine_output: bool = False,
+        cwd: t.Optional[T_PATHLIKE] = None,
+        timeout: t.Optional[t.Union[float, int]] = None,
+        check: bool = True,
+        encoding: t.Optional[str] = None,
+        errors: t.Optional[str] = None,
+        text: bool = True,
+        env: t.Optional[dict] = None,
+        replace_env: bool = False,
+        **popen_kwargs: t.Any,
+    ) -> "Command":
+        """
+        Return a new command that will be executed after this command regardless of this command's
+        return code.
+
+        This is like running "<this-command> ; <next-command>".
+        """
+        return self.__class__(
+            *args,
+            stdin=stdin,
+            input=input,
+            stdout=stdout,
+            stderr=stderr,
+            capture_output=capture_output,
+            combine_output=combine_output,
+            cwd=cwd,
+            timeout=timeout,
+            check=check,
+            encoding=encoding,
+            errors=errors,
+            text=text,
+            env=env,
+            replace_env=replace_env,
+            parent=AfterCommand(self),
+            **popen_kwargs,
+        )
+
+    def and_(
+        self,
+        *args: T_RUN_ARGS,
+        stdin: t.Optional[T_STD_FILE] = None,
+        input: t.Optional[t.Union[str, bytes]] = None,
+        stdout: t.Optional[T_STD_FILE] = subprocess.PIPE,
+        stderr: t.Optional[T_STD_FILE] = subprocess.PIPE,
+        capture_output: bool = True,
+        combine_output: bool = False,
+        cwd: t.Optional[T_PATHLIKE] = None,
+        timeout: t.Optional[t.Union[float, int]] = None,
+        check: bool = True,
+        encoding: t.Optional[str] = None,
+        errors: t.Optional[str] = None,
+        text: bool = True,
+        env: t.Optional[dict] = None,
+        replace_env: bool = False,
+        **popen_kwargs: t.Any,
+    ) -> "Command":
+        """
+        Return a new command that will be AND'd with this command.
+
+        This is like running "<this-command> && <next-command>".
+        """
+        return self.__class__(
+            *args,
+            stdin=stdin,
+            input=input,
+            stdout=stdout,
+            stderr=stderr,
+            capture_output=capture_output,
+            combine_output=combine_output,
+            cwd=cwd,
+            timeout=timeout,
+            check=check,
+            encoding=encoding,
+            errors=errors,
+            text=text,
+            env=env,
+            replace_env=replace_env,
+            parent=AndCommand(self),
+            **popen_kwargs,
+        )
+
+    def or_(
+        self,
+        *args: T_RUN_ARGS,
+        stdin: t.Optional[T_STD_FILE] = None,
+        input: t.Optional[t.Union[str, bytes]] = None,
+        stdout: t.Optional[T_STD_FILE] = subprocess.PIPE,
+        stderr: t.Optional[T_STD_FILE] = subprocess.PIPE,
+        capture_output: bool = True,
+        combine_output: bool = False,
+        cwd: t.Optional[T_PATHLIKE] = None,
+        timeout: t.Optional[t.Union[float, int]] = None,
+        check: bool = True,
+        encoding: t.Optional[str] = None,
+        errors: t.Optional[str] = None,
+        text: bool = True,
+        env: t.Optional[dict] = None,
+        replace_env: bool = False,
+        **popen_kwargs: t.Any,
+    ) -> "Command":
+        """
+        Return a new command that will be OR'd with this command.
+
+        This is like running "<this-command> || <next-command>".
+        """
+        return self.__class__(
+            *args,
+            stdin=stdin,
+            input=input,
+            stdout=stdout,
+            stderr=stderr,
+            capture_output=capture_output,
+            combine_output=combine_output,
+            cwd=cwd,
+            timeout=timeout,
+            check=check,
+            encoding=encoding,
+            errors=errors,
+            text=text,
+            env=env,
+            replace_env=replace_env,
+            parent=OrCommand(self),
+            **popen_kwargs,
+        )
+
+    def run(self, *extra_args: T_RUN_ARGS, **override_kwargs: t.Any) -> subprocess.CompletedProcess:
         """
         Wrapper around ``subprocess.run`` that uses this class' arguments as defaults.
 
@@ -208,73 +386,155 @@ class Command:
 
         To override default keyword arguments, pass them as keyword-args.
 
-        If :attr:`parent` is set (i.e. if this command was created using :meth:`pipe`), then the
-        parent command will be called first and its output will be piped as this command's input.
+        If :attr:`parent` is set (e.g. if this command was created with :meth:`pipe`,
+        :meth:`after`, :meth:`and_`, or :meth:`or_`), then the parent command will be called first
+        and then chained with this command.
 
         Args:
-            *extra_run_args: Extend :attr:`args` with extra command arguments.
-            **run_kwargs: Override this command's keyword arguments.
+            *extra_args: Extend :attr:`args` with extra command arguments.
+            **override_kwargs: Override this command's keyword arguments.
         """
-        run_args = self.args
-        if extra_run_args:
-            run_args = run_args + _parse_run_args(
-                extra_run_args, error_prefix=f"{self.__class__.__name__}.run(): "
-            )
-
-        input = run_kwargs.pop("input", self.input)
-        stdin = run_kwargs.pop("stdin", self.stdin)
-        stdout = run_kwargs.pop("stdout", self.stdout)
-        stderr = run_kwargs.pop("stderr", self.stderr)
-        capture_output = run_kwargs.pop("capture_output", self.capture_output)
-        combine_output = run_kwargs.pop("combine_output", self.combine_output)
-        cwd = run_kwargs.pop("cwd", self.cwd)
-        timeout = run_kwargs.pop("timeout", self.timeout)
-        check = run_kwargs.pop("check", self.check)
-        encoding = run_kwargs.pop("encoding", self.encoding)
-        errors = run_kwargs.pop("errors", self.errors)
-        text = run_kwargs.pop("text", self.text)
-        env = run_kwargs.pop("env", self.env)
-        replace_env = run_kwargs.pop("replace_env", self.replace_env)
-        popen_kwargs = {**self.popen_kwargs, **run_kwargs}
+        if extra_args or override_kwargs or self.parent:
+            command = self.from_command(self, *extra_args, **override_kwargs)
+        else:
+            command = self
 
         if self.parent:
-            parent_result = self.parent.run()
-            parent_output = parent_result.stdout
-            input = parent_output
-            stdin = None
+            result = self.parent.run(command)
+        else:
+            result = command._run()
 
-        if input is not None:
-            # Coerce input based on text mode setting.
-            if text and isinstance(input, bytes):
-                input = input.decode()
-            elif not text and isinstance(input, str):
-                input = input.encode()
+        return result
 
-        if not capture_output:
-            stdout = None
-            stderr = None
-
-        if combine_output:
-            stderr = subprocess.STDOUT
-
-        if env and not replace_env:
-            env = {**os.environ, **env}
+    def _run(self):
+        if self.env and not self.replace_env:
+            env = {**os.environ, **self.env}
+        else:
+            env = self.env
 
         return subprocess.run(
-            run_args,
-            stdin=stdin,
-            input=input,
-            stdout=stdout,
-            stderr=stderr,
-            cwd=cwd,
-            timeout=timeout,
-            check=check,
-            encoding=encoding,
-            errors=errors,
-            universal_newlines=text,  # NOTE: "text" argument doesn't exist in Python 3.6.
+            self.args,
+            stdin=self.stdin,
+            input=self.input,
+            stdout=self.stdout,
+            stderr=self.stderr,
+            cwd=self.cwd,
+            timeout=self.timeout,
+            check=self.check,
+            encoding=self.encoding,
+            errors=self.errors,
+            universal_newlines=self.text,  # NOTE: "text" argument doesn't exist in Python 3.6.
             env=env,
-            **popen_kwargs,
+            **self.popen_kwargs,
         )
+
+
+class ChainCommand(metaclass=ABCMeta):
+    """
+    Abstract base class for representing a chained command.
+
+    The class is initialized with a parent command that will be called before the next command in
+    the chain. The next command will be passed into the :meth:`run` method. Each subclass is
+    responsible for implementing the :meth:`run` logic.
+    """
+
+    def __init__(self, command: Command):
+        self.command = command
+
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}(args={self.command.args})"
+
+    @property
+    def shell_cmd(self):
+        return f"{self.command.shell_cmd} {self.separator}"
+
+    @property
+    @abstractmethod
+    def separator(self) -> str:  # pragma: no cover
+        # The separator is used for representational purposes only in `shell_cmd`.
+        pass
+
+    @abstractmethod
+    def run(self, next_command: Command) -> subprocess.CompletedProcess:  # pragma: no cover
+        # The primary logic that runs the parent command followed by the next command if applicable.
+        pass
+
+
+class AfterCommand(ChainCommand):
+    """
+    Chained command that runs one command after another regardless of the first command's return
+    code.
+
+    This is like the shell equivalent of "<cmd1> ; <cmd2>".
+    """
+
+    separator = ";"
+
+    def run(self, next_command: Command):
+        """Run `next_command` after :attr:`command`."""
+        try:
+            self.command.run()
+        except subprocess.CalledProcessError:
+            pass
+        return next_command.run()
+
+
+class PipeCommand(ChainCommand):
+    """
+    Chained command that pipes the output of one command into the input of another.
+
+    This is like the shell equivalent of "<cmd1> | <cmd2>".
+    """
+
+    separator = "|"
+
+    def run(self, next_command: Command) -> subprocess.CompletedProcess:
+        """Pipe :attr:`command` into `next_command`."""
+        result: t.Union[subprocess.CompletedProcess, subprocess.CalledProcessError]
+        try:
+            result = self.command.run()
+        except subprocess.CalledProcessError as exc:
+            result = exc
+        return next_command.run(input=result.stdout, stdin=None)
+
+
+class AndCommand(ChainCommand):
+    """
+    Chained command that runs one command after the other if the first command succeeds.
+
+    This is like the shell equivalent of "<cmd1> | <cmd2>".
+    """
+
+    separator = "&&"
+
+    def run(self, next_command: Command) -> subprocess.CompletedProcess:
+        """Run `next_command` after :attr:`command` if :attr:`command` succeeds."""
+        result = self.command.run()
+        if result.returncode == 0:
+            result = next_command.run()
+        return result
+
+
+class OrCommand(ChainCommand):
+    """
+    Chained command that runs one command after the other if the first command fails.
+
+    This is like the shell equivalent of "<cmd1> | <cmd2>".
+    """
+
+    separator = "||"
+
+    def run(self, next_command: Command) -> subprocess.CompletedProcess:
+        """Run `next_command` after :attr:`command` if :attr:`command` fails."""
+        try:
+            result = self.command.run()
+        except subprocess.CalledProcessError:
+            failed = True
+        else:
+            failed = result.returncode != 0
+        if failed:
+            result = next_command.run()
+        return result
 
 
 def _parse_run_args(args: tuple, error_prefix: str = "run(): ") -> t.List[t.Union[str, bytes]]:

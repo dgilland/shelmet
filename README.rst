@@ -119,7 +119,7 @@ Run system commands:
     sh.run(..., capture_output=False)
 
 
-Create reusable run commands that support piping:
+Create reusable run commands that support chained commands like pipe ``|`` , and ``&&``, or ``||``, and after ``;``:
 
 .. code-block:: python
 
@@ -137,6 +137,8 @@ Create reusable run commands that support piping:
     search_result_2 = grep_ps.run("search term 2")
     print(search_result_2.stdout)
 
+    # Equivalent to: mkdir foo && echo 'success' || echo 'failure'
+    sh.cmd("mkdir", "foo").and_("echo", "success").or_("echo", "failure").run()
 
 
 Write to a new file atomically where content is written to a temporary file and then moved once finished:

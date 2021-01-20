@@ -3,6 +3,11 @@ Changelog
 
 
 - Rename ``sh.command`` to ``sh.cmd``. **breaking change**
+- Add methods to ``sh.Command`` / ``sh.command``:
+
+  - ``Command.and_``
+  - ``Command.or_``
+  - ``Command.after``
 
 
 v0.3.0 (2020-12-24)

@@ -105,11 +105,14 @@ def test_command__should_raise_on_bad_args(args: list, exception: t.Type[Excepti
         param(sh.cmd("ls", "-la"), "Command(args=['ls', '-la'])"),
         param(
             sh.cmd("ls", "-la").pipe("grep", "foo"),
-            "Command(args=['grep', 'foo'], parents=[Command(args=['ls', '-la'])])",
+            "Command(args=['grep', 'foo'], parents=[PipeCommand(args=['ls', '-la'])])",
         ),
         param(
             sh.cmd("cmd1").pipe("cmd2").pipe("cmd3"),
-            "Command(args=['cmd3'], parents=[Command(args=['cmd1']), Command(args=['cmd2'])])",
+            (
+                "Command(args=['cmd3'],"
+                " parents=[PipeCommand(args=['cmd1']), PipeCommand(args=['cmd2'])])"
+            ),
         ),
     ],
 )
@@ -252,25 +255,151 @@ def test_command_run__should_replace_env(mock_subprocess_run: mock.MagicMock):
     ],
 )
 def test_command_run__should_override_defaults(
-    mock_subprocess_run, cmd: sh.Command, extra_args: list, overrides: dict, expected_call: tuple
+    mock_subprocess_run: mock.MagicMock,
+    cmd: sh.Command,
+    extra_args: list,
+    overrides: dict,
+    expected_call: tuple,
 ):
     cmd.run(*extra_args, **overrides)
     assert mock_subprocess_run.called
     assert mock_subprocess_run.call_args == expected_call
 
 
-def test_command_run__should_call_parent_command_run(mock_subprocess_run):
-    cmd = sh.cmd("cmd1").pipe("cmd2").pipe("cmd3")
-    cmd.run()
+@parametrize(
+    "cmd, mock_side_effect, expected_call_args_list",
+    [
+        param(
+            sh.cmd("cmd1").pipe("cmd2").pipe("cmd3"),
+            [
+                subprocess.CompletedProcess(args=["cmd1"], returncode=0),
+                subprocess.CompletedProcess(args=["cmd2"], returncode=0),
+                subprocess.CompletedProcess(args=["cmd3"], returncode=0),
+            ],
+            [["cmd1"], ["cmd2"], ["cmd3"]],
+            id="pipe_run_3",
+        ),
+        param(
+            sh.cmd("cmd1").pipe("cmd2").pipe("cmd3"),
+            [
+                subprocess.CalledProcessError(cmd=["cmd1"], returncode=1),
+                subprocess.CalledProcessError(cmd=["cmd2"], returncode=1),
+                subprocess.CompletedProcess(args=["cmd3"], returncode=0),
+            ],
+            [["cmd1"], ["cmd2"], ["cmd3"]],
+            id="pipe_run_3",
+        ),
+        param(
+            sh.cmd("cmd1").and_("cmd2").and_("cmd3"),
+            [subprocess.CompletedProcess(args=["cmd1"], returncode=1)],
+            [["cmd1"]],
+            id="and_run_1",
+        ),
+        param(
+            sh.cmd("cmd1").and_("cmd2").and_("cmd3"),
+            [
+                subprocess.CompletedProcess(args=["cmd1"], returncode=0),
+                subprocess.CompletedProcess(args=["cmd2"], returncode=1),
+            ],
+            [["cmd1"], ["cmd2"]],
+            id="and_run_2",
+        ),
+        param(
+            sh.cmd("cmd1").and_("cmd2").and_("cmd3"),
+            [
+                subprocess.CompletedProcess(args=["cmd1"], returncode=0),
+                subprocess.CompletedProcess(args=["cmd2"], returncode=0),
+                subprocess.CompletedProcess(args=["cmd3"], returncode=0),
+            ],
+            [["cmd1"], ["cmd2"], ["cmd3"]],
+            id="and_run_3",
+        ),
+        param(
+            sh.cmd("cmd1").or_("cmd2").or_("cmd3"),
+            [subprocess.CompletedProcess(args=["cmd1"], returncode=0)],
+            [["cmd1"]],
+            id="or_run_1",
+        ),
+        param(
+            sh.cmd("cmd1").or_("cmd2").or_("cmd3"),
+            [
+                subprocess.CompletedProcess(args=["cmd1"], returncode=1),
+                subprocess.CompletedProcess(args=["cmd2"], returncode=0),
+            ],
+            [["cmd1"], ["cmd2"]],
+            id="or_run_2",
+        ),
+        param(
+            sh.cmd("cmd1").or_("cmd2").or_("cmd3"),
+            [
+                subprocess.CompletedProcess(args=["cmd1"], returncode=1),
+                subprocess.CompletedProcess(args=["cmd2"], returncode=1),
+                subprocess.CompletedProcess(args=["cmd3"], returncode=0),
+            ],
+            [["cmd1"], ["cmd2"], ["cmd3"]],
+            id="or_run_3",
+        ),
+        param(
+            sh.cmd("cmd1").or_("cmd2").or_("cmd3"),
+            [
+                subprocess.CalledProcessError(cmd=["cmd1"], returncode=1),
+                subprocess.CalledProcessError(cmd=["cmd2"], returncode=1),
+                subprocess.CompletedProcess(args=["cmd3"], returncode=1),
+            ],
+            [["cmd1"], ["cmd2"], ["cmd3"]],
+            id="or_run_3_errors",
+        ),
+        param(
+            sh.cmd("cmd1").after("cmd2").after("cmd3"),
+            [
+                subprocess.CompletedProcess(args=["cmd1"], returncode=1),
+                subprocess.CompletedProcess(args=["cmd2"], returncode=1),
+                subprocess.CompletedProcess(args=["cmd3"], returncode=1),
+            ],
+            [["cmd1"], ["cmd2"], ["cmd3"]],
+            id="after_run_3_failures",
+        ),
+        param(
+            sh.cmd("cmd1").after("cmd2").after("cmd3"),
+            [
+                subprocess.CalledProcessError(cmd=["cmd1"], returncode=1),
+                subprocess.CalledProcessError(cmd=["cmd2"], returncode=1),
+                subprocess.CompletedProcess(args=["cmd3"], returncode=1),
+            ],
+            [["cmd1"], ["cmd2"], ["cmd3"]],
+            id="after_run_3_errors",
+        ),
+        param(
+            sh.cmd("cmd1").after("cmd2").after("cmd3"),
+            [
+                subprocess.CompletedProcess(args=["cmd1"], returncode=0),
+                subprocess.CompletedProcess(args=["cmd2"], returncode=0),
+                subprocess.CompletedProcess(args=["cmd3"], returncode=0),
+            ],
+            [["cmd1"], ["cmd2"], ["cmd3"]],
+            id="after_run_3_successes",
+        ),
+    ],
+)
+def test_command_run__should_call_parent_command_run(
+    mock_subprocess_run: mock.MagicMock,
+    cmd: sh.Command,
+    mock_side_effect: list,
+    expected_call_args_list: list,
+):
+    if mock_side_effect:
+        mock_subprocess_run.side_effect = mock_side_effect
 
-    assert len(mock_subprocess_run.call_args_list) == 3
-    call_cmd1, call_cmd2, call_cmd3 = mock_subprocess_run.call_args_list
-    assert call_cmd1[0][0] == ["cmd1"]
-    assert call_cmd2[0][0] == ["cmd2"]
-    assert call_cmd3[0][0] == ["cmd3"]
+    result = cmd.run()
+    assert len(mock_subprocess_run.call_args_list) == len(expected_call_args_list)
+    assert result.args == expected_call_args_list[-1]
+
+    for i, call_args in enumerate(expected_call_args_list):
+        call_cmd = mock_subprocess_run.call_args_list[i]
+        assert call_args == call_cmd[0][0]
 
 
-def test_command_run__should_pipe_parent_stdout_to_child(mock_subprocess_run):
+def test_command_run__should_pipe_parent_stdout_to_child(mock_subprocess_run: mock.MagicMock):
     cmd1_stdout = "cmd1_stdout"
     mock_subprocess_run().stdout = cmd1_stdout
 
@@ -288,16 +417,16 @@ def test_command_pipe__should_set_parent():
     cmd3 = cmd2.pipe("cmd3")
     cmd4 = cmd3.pipe("cmd4")
 
-    assert cmd2.parent is cmd1
-    assert cmd3.parent is cmd2
-    assert cmd4.parent is cmd3
+    assert cmd2.parent.command is cmd1
+    assert cmd3.parent.command is cmd2
+    assert cmd4.parent.command is cmd3
 
 
 def test_command_pipe__should_return_child_command():
-    parent = sh.cmd("parent")
+    parent_cmd = sh.cmd("parent")
     child_kwargs = {
         "stdin": None,
-        "input": "test",
+        "input": b"test",
         "stdout": None,
         "stderr": None,
         "capture_output": False,
@@ -311,13 +440,13 @@ def test_command_pipe__should_return_child_command():
         "replace_env": True,
     }
     child_popen_kwargs = {"umask": 1}
-    child = parent.pipe("child", "cmd", **child_kwargs, **child_popen_kwargs)
+    child = parent_cmd.pipe("child", "cmd", **child_kwargs, **child_popen_kwargs)
 
     assert child.args == ["child", "cmd"]
     for attr, value in child_kwargs.items():
         assert getattr(child, attr) == value
     assert child.popen_kwargs == child_popen_kwargs
-    assert child.parent is parent
+    assert child.parent.command is parent_cmd
 
 
 @parametrize(
@@ -329,9 +458,16 @@ def test_command_pipe__should_return_child_command():
             sh.cmd("ps").pipe("grep", "foo bar").pipe("grep", "test"),
             "ps | grep 'foo bar' | grep test",
         ),
+        param(sh.cmd("cmd1").and_("cmd2", "a b").and_("cmd3"), "cmd1 && cmd2 'a b' && cmd3"),
+        param(sh.cmd("cmd1").or_("cmd2", "a b").or_("cmd3"), "cmd1 || cmd2 'a b' || cmd3"),
+        param(sh.cmd("cmd1").after("cmd2", "a b").after("cmd3"), "cmd1 ; cmd2 'a b' ; cmd3"),
+        param(
+            sh.cmd("cmd1").pipe("cmd2", "a b").and_("cmd3").or_("cmd4").after("cmd5"),
+            "cmd1 | cmd2 'a b' && cmd3 || cmd4 ; cmd5",
+        ),
     ],
 )
-def test_command_shell_cmd__should_return_full_piped_command(
+def test_command_shell_cmd__should_return_full_chained_command(
     cmd: sh.Command, expected_shell_cmd: str
 ):
     assert cmd.shell_cmd == expected_shell_cmd
