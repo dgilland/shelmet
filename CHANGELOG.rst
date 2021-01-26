@@ -2,6 +2,9 @@ Changelog
 =========
 
 
+v0.4.0 (2021-01-26)
+-------------------
+
 - Rename ``sh.command`` to ``sh.cmd``. **breaking change**
 - Add methods to ``sh.Command`` / ``sh.command``:
 
