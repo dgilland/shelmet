@@ -2,6 +2,13 @@ Changelog
 =========
 
 
+v0.5.0 (XXXX-XX-XX)
+-------------------
+
+- Import all utility functions into ``shelmet`` namespace.
+- Remove ``shelmet.sh`` catch-all submodule in favor of splitting it into smaller submodules, ``shelmet.filesystem`` and ``shelmet.path``. Recommend using ``import shelmet as sh`` as primary usage pattern instead of importing submodules.  **breaking change**
+
+
 v0.4.0 (2021-01-26)
 -------------------
 

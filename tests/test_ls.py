@@ -7,7 +7,8 @@ from unittest import mock
 import pytest
 from pytest import param
 
-from shelmet import sh
+import shelmet as sh
+from shelmet.types import T_LS_FILTER
 
 from .utils import FakeDir, FakeFile
 
@@ -192,7 +193,7 @@ def test_ls(
         ),
     ],
 )
-def test_ls__should_include_on_multiple_types(tmp_path: Path, include: sh.T_LS_FILTER):
+def test_ls__should_include_on_multiple_types(tmp_path: Path, include: T_LS_FILTER):
     items: t.List[t.Union[FakeDir, FakeFile]] = [
         FakeDir("a_dir_include"),
         FakeDir("b_dir"),
@@ -274,7 +275,7 @@ def test_ls__should_use_only_files_and_only_dirs_in_include(
         ),
     ],
 )
-def test_ls__should_exclude_on_multiple_types(tmp_path: Path, exclude: sh.T_LS_FILTER):
+def test_ls__should_exclude_on_multiple_types(tmp_path: Path, exclude: T_LS_FILTER):
     items: t.List[t.Union[FakeDir, FakeFile]] = [
         FakeDir("a_dir_exclude"),
         FakeDir("b_dir"),
@@ -334,7 +335,7 @@ def test_ls_aliases(tmp_path: Path, fn: t.Callable, expected_kwargs: dict):
     expected_kwargs["include"] = None
     expected_kwargs["exclude"] = None
 
-    with mock.patch.object(sh, "ls") as mocked_ls:
+    with mock.patch.object(sh.path, "ls") as mocked_ls:
         list(fn(tmp_path))
 
     assert mocked_ls.called

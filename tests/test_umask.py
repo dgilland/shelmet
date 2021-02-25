@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from shelmet import sh
+import shelmet as sh
 
 
 def test_umask(tmp_path: Path):

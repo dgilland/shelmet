@@ -549,3 +549,98 @@ def _flatten(items: t.Iterable) -> t.Generator[t.Any, None, None]:
             yield from item
         else:
             yield item
+
+
+def cmd(
+    *args: T_RUN_ARGS,
+    stdin: t.Optional[T_STD_FILE] = None,
+    input: t.Optional[t.Union[str, bytes]] = None,
+    stdout: t.Optional[T_STD_FILE] = subprocess.PIPE,
+    stderr: t.Optional[T_STD_FILE] = subprocess.PIPE,
+    capture_output: bool = True,
+    combine_output: bool = False,
+    cwd: t.Optional[T_PATHLIKE] = None,
+    timeout: t.Optional[t.Union[float, int]] = None,
+    check: bool = True,
+    encoding: t.Optional[str] = None,
+    errors: t.Optional[str] = None,
+    text: bool = True,
+    env: t.Optional[dict] = None,
+    replace_env: bool = False,
+    **popen_kwargs: t.Any,
+) -> Command:
+    """
+    Factory that returns an instance of :class:`.Command` initialized with the given arguments.
+
+    See Also:
+        :class:`.Command` for description of arguments.
+    """
+    return Command(
+        *args,
+        stdin=stdin,
+        input=input,
+        stdout=stdout,
+        stderr=stderr,
+        capture_output=capture_output,
+        combine_output=combine_output,
+        cwd=cwd,
+        timeout=timeout,
+        check=check,
+        encoding=encoding,
+        errors=errors,
+        text=text,
+        env=env,
+        replace_env=replace_env,
+        **popen_kwargs,
+    )
+
+
+def run(
+    *args: T_RUN_ARGS,
+    stdin: t.Optional[T_STD_FILE] = None,
+    input: t.Optional[t.Union[str, bytes]] = None,
+    stdout: t.Optional[T_STD_FILE] = subprocess.PIPE,
+    stderr: t.Optional[T_STD_FILE] = subprocess.PIPE,
+    capture_output: bool = True,
+    combine_output: bool = False,
+    cwd: t.Optional[T_PATHLIKE] = None,
+    timeout: t.Optional[t.Union[float, int]] = None,
+    check: bool = True,
+    encoding: t.Optional[str] = None,
+    errors: t.Optional[str] = None,
+    text: bool = True,
+    env: t.Optional[dict] = None,
+    replace_env: bool = False,
+    **popen_kwargs: t.Any,
+) -> subprocess.CompletedProcess:
+    """
+    Convenience function-wrapper around :meth:`.Command.run`.
+
+    Using this function is equivalent to:
+
+    ::
+
+        result = sh.cmd(*args, **kwargs).run()
+
+    See Also:
+        :class:`.Command` for description of arguments.
+    """
+    cmd = Command(
+        *args,
+        stdin=stdin,
+        input=input,
+        stdout=stdout,
+        stderr=stderr,
+        capture_output=capture_output,
+        combine_output=combine_output,
+        cwd=cwd,
+        timeout=timeout,
+        check=check,
+        encoding=encoding,
+        errors=errors,
+        text=text,
+        env=env,
+        replace_env=replace_env,
+        **popen_kwargs,
+    )
+    return cmd.run()

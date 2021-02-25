@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from shelmet import sh
+import shelmet as sh
 
 from .utils import FakeDir, FakeFile
 

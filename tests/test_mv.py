@@ -7,7 +7,7 @@ from unittest import mock
 import pytest
 from pytest import param
 
-from shelmet import sh
+import shelmet as sh
 
 from .utils import FakeDir, FakeFile
 

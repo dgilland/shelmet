@@ -3,7 +3,7 @@ from unittest import mock
 
 import pytest
 
-from shelmet import sh
+import shelmet as sh
 
 
 parametrize = pytest.mark.parametrize
@@ -11,7 +11,7 @@ parametrize = pytest.mark.parametrize
 
 @pytest.fixture()
 def mock_command() -> t.Generator[mock.MagicMock, None, None]:
-    with mock.patch.object(sh, "Command", spec=sh.Command) as _mock_command:
+    with mock.patch.object(sh.command, "Command", spec=sh.command.Command) as _mock_command:
         yield _mock_command
 
 

@@ -3,7 +3,14 @@ from pathlib import Path
 import typing as t
 from unittest import mock
 
-from shelmet import sh
+
+try:
+    import fcntl
+except ImportError:  # pragma: no cover
+    fcntl = None  # type: ignore
+
+
+USES_FCNTL_FULLSYNC = hasattr(fcntl, "F_FULLFSYNC")
 
 
 def is_subdict(subset: dict, superset: dict) -> bool:
@@ -40,9 +47,6 @@ class FakeFile:
                 fp.write(b"\0")
         else:
             self.path.touch()
-
-
-USES_FCNTL_FULLSYNC = hasattr(sh.fcntl, "F_FULLFSYNC")
 
 
 class FakeDir:

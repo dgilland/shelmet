@@ -1,7 +1,7 @@
 import os
 from pathlib import Path
 
-from shelmet import sh
+import shelmet as sh
 
 
 def test_homedir__should_return_user_home_directory():

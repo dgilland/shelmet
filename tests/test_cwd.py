@@ -1,7 +1,7 @@
 import os
 from pathlib import Path
 
-from shelmet import sh
+import shelmet as sh
 
 
 def test_cwd__should_return_current_working_directory():

@@ -48,7 +48,7 @@ Import the ``sh`` module:
 
 .. code-block:: python
 
-    from shelmet import sh
+    import shelmet as sh
 
 
 Perform some file operations:

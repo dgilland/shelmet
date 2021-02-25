@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 from pytest import param
 
-from shelmet import sh
+import shelmet as sh
 
 
 parametrize = pytest.mark.parametrize
