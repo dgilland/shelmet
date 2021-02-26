@@ -2,6 +2,7 @@
 
 from contextlib import contextmanager
 import errno
+import io
 import os
 from pathlib import Path
 import random
@@ -9,13 +10,16 @@ import shutil
 import string
 import typing as t
 
-from .types import T_PATHLIKE
+from .types import READ_ONLY_MODES, T_PATHLIKE, T_READ_ONLY_BIN_MODES, T_READ_ONLY_TEXT_MODES
 
 
 try:
     import fcntl
 except ImportError:  # pragma: no cover
     fcntl = None  # type: ignore
+
+
+DEFAULT_CHUNK_SIZE = io.DEFAULT_BUFFER_SIZE
 
 
 @contextmanager
@@ -343,6 +347,214 @@ def mv(src: T_PATHLIKE, dst: T_PATHLIKE) -> None:
                 rm(tmp_dst)
         else:
             raise
+
+
+@t.overload
+def read(file: T_PATHLIKE, mode: T_READ_ONLY_TEXT_MODES = "r", **open_kwargs: t.Any) -> str:
+    ...  # pragma: no cover
+
+
+@t.overload
+def read(file: T_PATHLIKE, mode: T_READ_ONLY_BIN_MODES, **open_kwargs: t.Any) -> bytes:
+    ...  # pragma: no cover
+
+
+@t.overload
+def read(file: T_PATHLIKE, mode: str = "r", **open_kwargs: t.Any) -> t.Union[str, bytes]:
+    ...  # pragma: no cover
+
+
+def read(file: T_PATHLIKE, mode: str = "r", **open_kwargs: t.Any) -> t.Union[str, bytes]:
+    """
+    Return contents of file.
+
+    Args:
+        file: File to read.
+        mode: File open mode.
+        **open_kwargs: Additional keyword arguments to pass to ``open``.
+    """
+    if mode not in READ_ONLY_MODES:
+        raise ValueError(f"Invalid read-only mode: {mode}")
+
+    with open(file, mode, **open_kwargs) as fp:
+        return fp.read()
+
+
+def readbytes(file: T_PATHLIKE, **open_kwargs: t.Any) -> bytes:
+    """
+    Return binary contents of file.
+
+    Equivalent to calling :func:`read` with ``mode="rb"``.
+
+    Args:
+        file: File to read.
+        **open_kwargs: Additional keyword arguments to pass to ``open``.
+    """
+    return read(file, "rb", **open_kwargs)
+
+
+def readtext(file: T_PATHLIKE, **open_kwargs: t.Any) -> str:
+    """
+    Return text contents of file.
+
+    Equivalent to calling :func:`read` with ``mode="r"`` (the default behavior of :func:`read`).
+
+    Args:
+        file: File to read.
+        **open_kwargs: Additional keyword arguments to pass to ``open``.
+    """
+    return read(file, "r", **open_kwargs)
+
+
+@t.overload
+def readchunks(
+    file: T_PATHLIKE,
+    mode: T_READ_ONLY_TEXT_MODES = "r",
+    *,
+    size: int = DEFAULT_CHUNK_SIZE,
+    sep: t.Optional[str] = None,
+    **open_kwargs: t.Any,
+) -> t.Generator[str, None, None]:
+    ...  # pragma: no cover
+
+
+@t.overload
+def readchunks(
+    file: T_PATHLIKE,
+    mode: T_READ_ONLY_BIN_MODES,
+    *,
+    size: int = DEFAULT_CHUNK_SIZE,
+    sep: t.Optional[bytes] = None,
+    **open_kwargs: t.Any,
+) -> t.Generator[bytes, None, None]:
+    ...  # pragma: no cover
+
+
+@t.overload
+def readchunks(
+    file: T_PATHLIKE,
+    mode: str = "r",
+    *,
+    size: int = DEFAULT_CHUNK_SIZE,
+    sep: t.Optional[t.Union[str, bytes]] = None,
+    **open_kwargs: t.Any,
+) -> t.Generator[t.Union[str, bytes], None, None]:
+    ...  # pragma: no cover
+
+
+def readchunks(
+    file: T_PATHLIKE,
+    mode: str = "r",
+    *,
+    size: int = DEFAULT_CHUNK_SIZE,
+    sep: t.Optional[t.Union[str, bytes]] = None,
+    **open_kwargs: t.Any,
+) -> t.Generator[t.Union[str, bytes], None, None]:
+    """
+    Yield contents of file as chunks.
+
+    If separator, `sep`, is not given, chunks will be yielded by `size`.
+
+    If separator, `sep`, is given, chunks will be yielded from as if from ``contents.split(sep)``.
+    The `size` argument will still be used for each file read operation, but the contents will be
+    buffered until a separator is encountered.
+
+    Args:
+        file: File to read.
+        mode: File open mode.
+        size: Size of chunks to read from file at a time and chunk size to yield when `sep` not
+            given.
+        sep: Separator to split chunks by in lieu of splitting by size.
+        **open_kwargs: Additional keyword arguments to pass to ``open``.
+    """
+    if mode not in READ_ONLY_MODES:
+        raise ValueError(f"Invalid read-only mode: {mode}")
+    return _readchunks(file, mode, size=size, sep=sep, **open_kwargs)
+
+
+def _readchunks(file, mode="r", *, size=DEFAULT_CHUNK_SIZE, sep=None, **open_kwargs):
+    buffer = ""
+    if "b" in mode:
+        buffer = b""
+
+    with open(file, mode, **open_kwargs) as fp:
+        try:
+            while True:
+                chunk = fp.read(size)
+
+                if not chunk:
+                    # We're done with the file but if we have anything in the buffer, yield it.
+                    if buffer:
+                        yield buffer
+                    break
+                elif not sep:
+                    # Yield chunks delineated by size.
+                    yield chunk
+                else:
+                    buffer += chunk
+                    # Yield chunks delineated by separator.
+                    while sep in buffer:
+                        chunk, buffer = buffer.split(sep, 1)
+                        yield chunk
+
+        except GeneratorExit:  # pragma: no cover
+            # Catch GeneratorExit to ensure contextmanager closes file when exiting generator early.
+            pass
+
+
+@t.overload
+def readlines(
+    file: T_PATHLIKE, mode: T_READ_ONLY_TEXT_MODES = "r", *, limit: int = -1, **open_kwargs: t.Any
+) -> t.Generator[str, None, None]:
+    ...  # pragma: no cover
+
+
+@t.overload
+def readlines(
+    file: T_PATHLIKE, mode: T_READ_ONLY_BIN_MODES, *, limit: int = -1, **open_kwargs: t.Any
+) -> t.Generator[bytes, None, None]:
+    ...  # pragma: no cover
+
+
+@t.overload
+def readlines(
+    file: T_PATHLIKE, mode: str = "r", *, limit: int = -1, **open_kwargs: t.Any
+) -> t.Generator[t.Union[str, bytes], None, None]:
+    ...  # pragma: no cover
+
+
+def readlines(
+    file: T_PATHLIKE, mode: str = "r", *, limit: int = -1, **open_kwargs: t.Any
+) -> t.Generator[t.Union[str, bytes], None, None]:
+    """
+    Yield each line of a file.
+
+    Note:
+        Line-endings are included in the yielded values.
+
+    Args:
+        file: File to read.
+        mode: File open mode.
+        limit: Maximum length of each line to yield. For example, ``limit=10`` will yield the first
+            10 characters of each line.
+        **open_kwargs: Additional keyword arguments to pass to ``open``.
+    """
+    if mode not in READ_ONLY_MODES:
+        raise ValueError(f"Invalid read-only mode: {mode}")
+    return _readlines(file, mode, limit=limit, **open_kwargs)
+
+
+def _readlines(file, mode="r", *, limit=-1, **open_kwargs):
+    sentinel = ""
+    if "b" in mode:
+        sentinel = b""
+
+    with open(file, mode, **open_kwargs) as fp:
+        try:
+            yield from iter(lambda: fp.readline(limit), sentinel)
+        except GeneratorExit:  # pragma: no cover
+            # Catch GeneratorExit to ensure contextmanager closes file when exiting generator early.
+            pass
 
 
 def rm(*paths: T_PATHLIKE) -> None:
