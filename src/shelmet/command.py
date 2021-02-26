@@ -74,7 +74,7 @@ class Command:
         self,
         *args: T_RUN_ARGS,
         stdin: t.Optional[T_STD_FILE] = None,
-        input: t.Optional[t.AnyStr] = None,
+        input: t.Optional[t.Union[str, bytes]] = None,
         stdout: t.Optional[T_STD_FILE] = subprocess.PIPE,
         stderr: t.Optional[T_STD_FILE] = subprocess.PIPE,
         capture_output: bool = True,
@@ -186,7 +186,7 @@ class Command:
         self,
         *args: T_RUN_ARGS,
         stdin: t.Optional[T_STD_FILE] = None,
-        input: t.Optional[t.AnyStr] = None,
+        input: t.Optional[t.Union[str, bytes]] = None,
         stdout: t.Optional[T_STD_FILE] = subprocess.PIPE,
         stderr: t.Optional[T_STD_FILE] = subprocess.PIPE,
         capture_output: bool = True,
@@ -230,7 +230,7 @@ class Command:
         self,
         *args: T_RUN_ARGS,
         stdin: t.Optional[T_STD_FILE] = None,
-        input: t.Optional[t.AnyStr] = None,
+        input: t.Optional[t.Union[str, bytes]] = None,
         stdout: t.Optional[T_STD_FILE] = subprocess.PIPE,
         stderr: t.Optional[T_STD_FILE] = subprocess.PIPE,
         capture_output: bool = True,
@@ -275,7 +275,7 @@ class Command:
         self,
         *args: T_RUN_ARGS,
         stdin: t.Optional[T_STD_FILE] = None,
-        input: t.Optional[t.AnyStr] = None,
+        input: t.Optional[t.Union[str, bytes]] = None,
         stdout: t.Optional[T_STD_FILE] = subprocess.PIPE,
         stderr: t.Optional[T_STD_FILE] = subprocess.PIPE,
         capture_output: bool = True,
@@ -319,7 +319,7 @@ class Command:
         self,
         *args: T_RUN_ARGS,
         stdin: t.Optional[T_STD_FILE] = None,
-        input: t.Optional[t.AnyStr] = None,
+        input: t.Optional[t.Union[str, bytes]] = None,
         stdout: t.Optional[T_STD_FILE] = subprocess.PIPE,
         stderr: t.Optional[T_STD_FILE] = subprocess.PIPE,
         capture_output: bool = True,
@@ -518,7 +518,7 @@ class OrCommand(ChainCommand):
         return result
 
 
-def _parse_run_args(args: tuple, error_prefix: str = "run(): ") -> t.List[t.AnyStr]:
+def _parse_run_args(args: tuple, error_prefix: str = "run(): ") -> t.List[t.Union[str, bytes]]:
     good_args = []
     bad_args = []
 
@@ -554,7 +554,7 @@ def _flatten(items: t.Iterable) -> t.Generator[t.Any, None, None]:
 def cmd(
     *args: T_RUN_ARGS,
     stdin: t.Optional[T_STD_FILE] = None,
-    input: t.Optional[t.AnyStr] = None,
+    input: t.Optional[t.Union[str, bytes]] = None,
     stdout: t.Optional[T_STD_FILE] = subprocess.PIPE,
     stderr: t.Optional[T_STD_FILE] = subprocess.PIPE,
     capture_output: bool = True,
@@ -598,7 +598,7 @@ def cmd(
 def run(
     *args: T_RUN_ARGS,
     stdin: t.Optional[T_STD_FILE] = None,
-    input: t.Optional[t.AnyStr] = None,
+    input: t.Optional[t.Union[str, bytes]] = None,
     stdout: t.Optional[T_STD_FILE] = subprocess.PIPE,
     stderr: t.Optional[T_STD_FILE] = subprocess.PIPE,
     capture_output: bool = True,
