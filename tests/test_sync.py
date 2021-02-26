@@ -22,7 +22,7 @@ def test_dirsync(tmp_path: Path):
     assert mocked_os_fsync.called
 
 
-def test_fsync__should_sync_file_object(tmp_path: Path):
+def test_fsync__syncs_on_file_object(tmp_path: Path):
     file = tmp_path / "test.txt"
 
     with file.open("w") as fp:
@@ -36,7 +36,7 @@ def test_fsync__should_sync_file_object(tmp_path: Path):
     assert mock_os_fsync.call_args[0][0] == fileno
 
 
-def test_fsync__should_sync_fileno(tmp_path: Path):
+def test_fsync__syncs_on_fileno(tmp_path: Path):
     file = tmp_path / "test.txt"
     file.write_text("test")
 
@@ -59,6 +59,6 @@ def test_fsync__should_sync_fileno(tmp_path: Path):
         param(set()),
     ],
 )
-def test_fsync__should_raise_on_invalid_arg_type(arg):
+def test_fsync__raises_on_invalid_arg_type(arg):
     with pytest.raises(ValueError):
         sh.fsync(arg)

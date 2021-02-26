@@ -19,7 +19,7 @@ parametrize = pytest.mark.parametrize
         param("a/b/c"),
     ],
 )
-def test_cd__should_change_cwd(tmp_path: Path, path: str):
+def test_cd__changes_cwd(tmp_path: Path, path: str):
     orig_cwd = os.getcwd()
     cd_path = tmp_path / path
     cd_path.mkdir(parents=True, exist_ok=True)

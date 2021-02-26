@@ -193,7 +193,7 @@ def test_ls(
         ),
     ],
 )
-def test_ls__should_include_on_multiple_types(tmp_path: Path, include: T_LS_FILTER):
+def test_ls__includes_on_multiple_types(tmp_path: Path, include: T_LS_FILTER):
     items: t.List[t.Union[FakeDir, FakeFile]] = [
         FakeDir("a_dir_include"),
         FakeDir("b_dir"),
@@ -245,7 +245,7 @@ def test_ls__should_include_on_multiple_types(tmp_path: Path, include: T_LS_FILT
         ),
     ],
 )
-def test_ls__should_use_only_files_and_only_dirs_in_include(
+def test_ls__uses_only_files_and_only_dirs_in_include(
     tmp_path: Path,
     items: t.List[t.Union[FakeDir, FakeFile]],
     kwargs: dict,
@@ -275,7 +275,7 @@ def test_ls__should_use_only_files_and_only_dirs_in_include(
         ),
     ],
 )
-def test_ls__should_exclude_on_multiple_types(tmp_path: Path, exclude: T_LS_FILTER):
+def test_ls__excludes_on_multiple_types(tmp_path: Path, exclude: T_LS_FILTER):
     items: t.List[t.Union[FakeDir, FakeFile]] = [
         FakeDir("a_dir_exclude"),
         FakeDir("b_dir"),
@@ -293,7 +293,7 @@ def test_ls__should_exclude_on_multiple_types(tmp_path: Path, exclude: T_LS_FILT
     assert contents == expected_contents
 
 
-def test_ls__should_not_recurse_into_excluded_dirs(tmp_path: Path):
+def test_ls__does_not_recurse_into_excluded_dirs(tmp_path: Path):
     items: t.List[t.Union[FakeDir, FakeFile]] = [
         FakeDir("a_dir_excluded", files=[FakeFile("a1.txt")]),
         FakeDir("b_dir", files=[FakeFile("b2.txt")]),
@@ -311,12 +311,12 @@ def test_ls__should_not_recurse_into_excluded_dirs(tmp_path: Path):
     assert contents == expected_contents
 
 
-def test_ls__should_raise_when_both_only_files_and_only_dirs_are_true():
+def test_ls__raises_when_both_only_files_and_only_dirs_are_true():
     with pytest.raises(ValueError):
         list(sh.ls(only_files=True, only_dirs=True))
 
 
-def test_ls__should_raise_when_include_is_invalid_type():
+def test_ls__raises_when_include_is_invalid_type():
     with pytest.raises(TypeError):
         list(sh.ls(include=True))
 

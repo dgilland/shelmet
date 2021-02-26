@@ -27,7 +27,7 @@ def test_mkdir(tmp_path: Path, paths: t.List[t.Union[str, Path]]):
         assert target.is_dir()
 
 
-def test_mkdir__should_set_mode(tmp_path: Path):
+def test_mkdir__sets_mode(tmp_path: Path):
     targets = [tmp_path / "test1", tmp_path / "test2", tmp_path / "1" / "2" / "3"]
     mode = 0o755
 
@@ -37,6 +37,6 @@ def test_mkdir__should_set_mode(tmp_path: Path):
         assert target_mode == oct(mode)
 
 
-def test_mkdir__should_raise_if_exist_not_ok(tmp_path: Path):
+def test_mkdir__raises_if_exist_not_ok(tmp_path: Path):
     with pytest.raises(FileExistsError):
         sh.mkdir(tmp_path, exist_ok=False)

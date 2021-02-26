@@ -38,7 +38,7 @@ parametrize = pytest.mark.parametrize
         ),
     ],
 )
-def test_mv__should_move_file(
+def test_mv__moves_file(
     tmp_path: Path, src: FakeFile, dst: t.Union[FakeFile, FakeDir], expected: FakeFile
 ):
     base_dir = FakeDir(tmp_path)
@@ -78,7 +78,7 @@ def test_mv__should_move_file(
         ),
     ],
 )
-def test_mv__should_move_dir(
+def test_mv__moves_dir(
     tmp_path: Path, src_files: t.List[FakeFile], dst: t.Union[FakeDir, str], expected: str
 ):
     src_dir = FakeDir(tmp_path / "src", files=src_files)
@@ -101,7 +101,7 @@ def test_mv__should_move_dir(
         assert dst_file.path.read_text() == src_file.text
 
 
-def test_mv__should_allow_same_file_as_destination(tmp_path: Path):
+def test_mv__allows_same_file_as_destination(tmp_path: Path):
     src_file = FakeFile(tmp_path / "src.txt", text="src")
     src_file.write()
     sh.mv(src_file.path, src_file.path)
@@ -109,7 +109,7 @@ def test_mv__should_allow_same_file_as_destination(tmp_path: Path):
     assert src_file.path.read_text() == src_file.text
 
 
-def test_mv__should_work_across_file_systems(tmp_path: Path):
+def test_mv__works_across_file_systems(tmp_path: Path):
     src_file = FakeFile(tmp_path / "src.txt", text="src")
     src_file.write()
 
@@ -129,7 +129,7 @@ def test_mv__should_work_across_file_systems(tmp_path: Path):
     assert not src_file.path.exists()
 
 
-def test_mv__should_raise_when_source_dir_exists_in_destination_and_is_not_empty(tmp_path: Path):
+def test_mv__raises_when_source_dir_exists_in_destination_and_is_not_empty(tmp_path: Path):
     src_dir = FakeDir(tmp_path / "src", files=[FakeFile("src.txt", text="src")])
     src_dir.mkdir()
     dst_dir = FakeDir(tmp_path / "dst", files=[FakeFile("src/other.txt", text="other")])

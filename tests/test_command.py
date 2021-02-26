@@ -54,7 +54,7 @@ def run_call_args(
     )
 
 
-def test_command__should_return_command_object_with_defaults():
+def test_command__returns_command_object_with_defaults():
     args = ["ls", "-la"]
     cmd = sh.cmd(*args)
 
@@ -94,7 +94,7 @@ def test_command__should_return_command_object_with_defaults():
         ),
     ],
 )
-def test_command__should_raise_on_bad_args(args: list, exception: t.Type[Exception], match: str):
+def test_command__raises_on_bad_args(args: list, exception: t.Type[Exception], match: str):
     with pytest.raises(exception, match=re.escape(match)):
         sh.cmd(*args)
 
@@ -196,21 +196,21 @@ def test_command_repr(cmd, expected_repr):
         ),
     ],
 )
-def test_command_run__should_pass_arguments_to_subprocess_run(
+def test_command_run__passes_arguments_to_subprocess_run(
     mock_subprocess_run: mock.MagicMock, args: list, kwargs: dict, expected_call: tuple
 ):
     sh.run(*args, **kwargs)
     assert mock_subprocess_run.call_args == expected_call
 
 
-def test_command_run__should_extend_env(mock_subprocess_run: mock.MagicMock):
+def test_command_run__extends_env(mock_subprocess_run: mock.MagicMock):
     env = {"a": "1", "b": "2"}
     expected_call = run_call_args(["ls"], env={**os.environ, **env})
     sh.run("ls", env=env)
     assert mock_subprocess_run.call_args == expected_call
 
 
-def test_command_run__should_replace_env(mock_subprocess_run: mock.MagicMock):
+def test_command_run__replaces_env(mock_subprocess_run: mock.MagicMock):
     env = {"a": "1", "b": "2"}
     expected_call = run_call_args(["ls"], env=env)
     sh.run("ls", env=env, replace_env=True)
@@ -254,7 +254,7 @@ def test_command_run__should_replace_env(mock_subprocess_run: mock.MagicMock):
         ),
     ],
 )
-def test_command_run__should_override_defaults(
+def test_command_run__overrides_defaults(
     mock_subprocess_run: mock.MagicMock,
     cmd: sh.Command,
     extra_args: list,
@@ -381,7 +381,7 @@ def test_command_run__should_override_defaults(
         ),
     ],
 )
-def test_command_run__should_call_parent_command_run(
+def test_command_run__calls_parent_command_run(
     mock_subprocess_run: mock.MagicMock,
     cmd: sh.Command,
     mock_side_effect: list,
@@ -399,7 +399,7 @@ def test_command_run__should_call_parent_command_run(
         assert call_args == call_cmd[0][0]
 
 
-def test_command_run__should_pipe_parent_stdout_to_child(mock_subprocess_run: mock.MagicMock):
+def test_command_run__pipes_parent_stdout_to_child(mock_subprocess_run: mock.MagicMock):
     cmd1_stdout = "cmd1_stdout"
     mock_subprocess_run().stdout = cmd1_stdout
 
@@ -411,7 +411,7 @@ def test_command_run__should_pipe_parent_stdout_to_child(mock_subprocess_run: mo
     assert call_cmd2[1]["input"] == cmd1_stdout
 
 
-def test_command_pipe__should_set_parent():
+def test_command_pipe__sets_parent():
     cmd1 = sh.cmd("cmd1")
     cmd2 = cmd1.pipe("cmd2")
     cmd3 = cmd2.pipe("cmd3")
@@ -422,7 +422,7 @@ def test_command_pipe__should_set_parent():
     assert cmd4.parent.command is cmd3
 
 
-def test_command_pipe__should_return_child_command():
+def test_command_pipe__returns_child_command():
     parent_cmd = sh.cmd("parent")
     child_kwargs = {
         "stdin": None,
@@ -467,7 +467,5 @@ def test_command_pipe__should_return_child_command():
         ),
     ],
 )
-def test_command_shell_cmd__should_return_full_chained_command(
-    cmd: sh.Command, expected_shell_cmd: str
-):
+def test_command_shell_cmd__returns_full_chained_command(cmd: sh.Command, expected_shell_cmd: str):
     assert cmd.shell_cmd == expected_shell_cmd

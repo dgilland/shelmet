@@ -84,7 +84,7 @@ def test_rmdir(tmp_path: Path, sources: t.Sequence[FakeFile]):
         assert not src.path.exists()
 
 
-def test_rmdir__should_raise_on_file(tmp_path: Path):
+def test_rmdir__raises_on_file(tmp_path: Path):
     path = tmp_path / "test.txt"
     path.touch()
 
@@ -112,7 +112,7 @@ def test_rmfile(tmp_path: Path, sources: t.Sequence[FakeFile]):
         assert not src.path.exists()
 
 
-def test_rmfile__should_raise_on_dir(tmp_path: Path):
+def test_rmfile__raises_on_dir(tmp_path: Path):
     path = tmp_path / "test"
     path.mkdir()
 
@@ -128,5 +128,5 @@ def test_rmfile__should_raise_on_dir(tmp_path: Path):
         param(sh.rmfile),
     ],
 )
-def test_rm_fn__should_ignore_missing_sources(tmp_path: Path, rm_fn: t.Callable):
+def test_rm__ignores_missing_sources(tmp_path: Path, rm_fn: t.Callable):
     rm_fn(tmp_path / "1", tmp_path / "2", tmp_path / "3")

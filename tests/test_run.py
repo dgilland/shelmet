@@ -15,7 +15,7 @@ def mock_command() -> t.Generator[mock.MagicMock, None, None]:
         yield _mock_command
 
 
-def test_run__should_create_command_and_call_run(mock_command):
+def test_run__creates_command_and_call_run(mock_command):
     args = ["ls", "-la"]
     kwargs: t.Dict[str, t.Any] = {
         "stdin": None,

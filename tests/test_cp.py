@@ -7,7 +7,7 @@ import shelmet as sh
 from .utils import FakeDir, FakeFile
 
 
-def test_cp__should_raise_when_copying_dir_to_existing_file(tmp_path: Path):
+def test_cp__raises_when_copying_dir_to_existing_file(tmp_path: Path):
     src_dir = tmp_path / "src"
     src_dir.mkdir()
 
@@ -19,7 +19,7 @@ def test_cp__should_raise_when_copying_dir_to_existing_file(tmp_path: Path):
         sh.cp(src_dir, dst_file)
 
 
-def test_cp__should_copy_file_to_file(tmp_path: Path):
+def test_cp__copies_file_to_file(tmp_path: Path):
     src_dir = FakeDir(tmp_path / "src")
     src_file = src_dir.add_file("test.txt", text="test")
 
@@ -30,7 +30,7 @@ def test_cp__should_copy_file_to_file(tmp_path: Path):
     assert dst_file.read_text() == src_file.text
 
 
-def test_cp__should_copy_file_to_existing_dir(tmp_path: Path):
+def test_cp__copies_file_to_existing_dir(tmp_path: Path):
     src_dir = FakeDir(tmp_path / "src")
     src_file = src_dir.add_file("test.txt", text="test")
 
@@ -43,7 +43,7 @@ def test_cp__should_copy_file_to_existing_dir(tmp_path: Path):
     assert dst_file.read_text() == src_file.text
 
 
-def test_cp__should_copy_dir_to_new_dir(tmp_path: Path):
+def test_cp__copies_dir_to_new_dir(tmp_path: Path):
     src_files = [
         FakeFile("1.txt", text="1"),
         FakeFile("2.txt", text="2"),
@@ -62,7 +62,7 @@ def test_cp__should_copy_dir_to_new_dir(tmp_path: Path):
         assert dst_file.read_text() == src_file.text
 
 
-def test_cp__should_copy_and_merge_dir_to_existing_dir(tmp_path: Path):
+def test_cp__copies_and_merge_dir_to_existing_dir(tmp_path: Path):
     src_files = [
         FakeFile("1.txt", text="1"),
         FakeFile("2.txt", text="2"),

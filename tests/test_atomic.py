@@ -47,7 +47,7 @@ def test_atomicdir(tmp_path: Path, opts: t.Dict[str, t.Any]):
         assert file_path.read_text() == file.text
 
 
-def test_atomicdir__should_sync_dir(tmp_path: Path):
+def test_atomicdir__syncs_dir(tmp_path: Path):
     dir = tmp_path / "test"
 
     with patch_os_fsync() as mocked_os_fsync:
@@ -58,7 +58,7 @@ def test_atomicdir__should_sync_dir(tmp_path: Path):
     assert mocked_os_fsync.call_count == 2
 
 
-def test_atomicdir__should_skip_sync_when_disabled(tmp_path: Path):
+def test_atomicdir__skips_sync_when_disabled(tmp_path: Path):
     dir = tmp_path / "test"
 
     with patch_os_fsync() as mocked_os_fsync:
@@ -68,7 +68,7 @@ def test_atomicdir__should_skip_sync_when_disabled(tmp_path: Path):
     assert not mocked_os_fsync.called
 
 
-def test_atomicdir__should_overwrite_when_enabled(tmp_path: Path):
+def test_atomicdir__overwrites_when_enabled(tmp_path: Path):
     dir = FakeDir(tmp_path / "test", files=[FakeFile("1"), FakeFile("2"), FakeFile("3")])
     dir.mkdir()
 
@@ -80,7 +80,7 @@ def test_atomicdir__should_overwrite_when_enabled(tmp_path: Path):
     assert not list(dir.path.iterdir())
 
 
-def test_atomicdir__should_not_overwrite_when_disabled(tmp_path: Path):
+def test_atomicdir__does_not_overwrite_when_disabled(tmp_path: Path):
     dir = FakeDir(tmp_path / "test", files=[FakeFile("1"), FakeFile("2"), FakeFile("3")])
     dir.mkdir()
 
@@ -89,7 +89,7 @@ def test_atomicdir__should_not_overwrite_when_disabled(tmp_path: Path):
             pass
 
 
-def test_atomicdir__should_fail_if_path_is_file(tmp_path: Path):
+def test_atomicdir__fails_if_path_is_file(tmp_path: Path):
     already_exists_file = tmp_path / "test"
     already_exists_file.write_text("")
 
@@ -120,7 +120,7 @@ def test_atomicfile(tmp_path: Path, opts: t.Dict[str, t.Any]):
     assert file.read_text() == text
 
 
-def test_atomicfile__should_sync_new_file_and_dir(tmp_path: Path):
+def test_atomicfile__syncs_new_file_and_dir(tmp_path: Path):
     file = tmp_path / "test.txt"
 
     with patch_os_fsync() as mocked_os_fsync:
@@ -131,7 +131,7 @@ def test_atomicfile__should_sync_new_file_and_dir(tmp_path: Path):
     assert mocked_os_fsync.call_count == 2
 
 
-def test_atomicfile__should_skip_sync_when_disabled(tmp_path: Path):
+def test_atomicfile__skips_sync_when_disabled(tmp_path: Path):
     file = tmp_path / "test.txt"
 
     with patch_os_fsync() as mocked_os_fsync:
@@ -141,7 +141,7 @@ def test_atomicfile__should_skip_sync_when_disabled(tmp_path: Path):
     assert not mocked_os_fsync.called
 
 
-def test_atomicfile__should_not_overwrite_when_disabled(tmp_path: Path):
+def test_atomicfile__does_not_overwrite_when_disabled(tmp_path: Path):
     file = tmp_path / "test.txt"
     file.write_text("")
 
@@ -150,7 +150,7 @@ def test_atomicfile__should_not_overwrite_when_disabled(tmp_path: Path):
             pass
 
 
-def test_atomicfile__should_fail_if_path_is_dir(tmp_path: Path):
+def test_atomicfile__fails_if_path_is_dir(tmp_path: Path):
     already_exists_dir = tmp_path
     with pytest.raises(IsADirectoryError):
         with sh.atomicfile(already_exists_dir):
@@ -179,7 +179,7 @@ def test_atomicfile__should_fail_if_path_is_dir(tmp_path: Path):
         param(True),
     ],
 )
-def test_atomicfile__should_raise_when_mode_invalid(tmp_path: Path, mode: t.Any):
+def test_atomicfile__raises_when_mode_invalid(tmp_path: Path, mode: t.Any):
     with pytest.raises(ValueError):
         with sh.atomicfile(tmp_path / "test.txt", mode):
             pass

@@ -18,7 +18,7 @@ parametrize = pytest.mark.parametrize
         param({"a": "1", "b": "2"}),
     ],
 )
-def test_environ__should_extend_envvars_and_restore_original(env: dict):
+def test_environ__extends_envvars_and_restore_original(env: dict):
     orig_env = os.environ.copy()
 
     with sh.environ(env) as envvars:
@@ -35,7 +35,7 @@ def test_environ__should_extend_envvars_and_restore_original(env: dict):
         param({"a": "1", "b": "2"}),
     ],
 )
-def test_environ__should_replace_envvars_and_replace_original(env: dict):
+def test_environ__replaces_envvars_and_restores_original(env: dict):
     orig_env = os.environ.copy()
 
     with sh.environ(env, replace=True) as envvars:
