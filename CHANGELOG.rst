@@ -14,6 +14,10 @@ v0.5.0 (XXXX-XX-XX)
   - ``readchunks``
   - ``readlines``
   - ``readtext``
+  - ``write``
+  - ``writebytes``
+  - ``writelines``
+  - ``writetext``
 
 
 v0.4.0 (2021-01-26)

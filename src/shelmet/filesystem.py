@@ -10,7 +10,17 @@ import shutil
 import string
 import typing as t
 
-from .types import READ_ONLY_MODES, T_PATHLIKE, T_READ_ONLY_BIN_MODES, T_READ_ONLY_TEXT_MODES
+from .types import (
+    READ_ONLY_MODES,
+    T_PATHLIKE,
+    T_READ_ONLY_BIN_MODES,
+    T_READ_ONLY_TEXT_MODES,
+    T_WRITE_ONLY_BIN_MODES,
+    T_WRITE_ONLY_TEXT_MODES,
+    WRITE_ONLY_BIN_MODES,
+    WRITE_ONLY_MODES,
+    WRITE_ONLY_TEXT_MODES,
+)
 
 
 try:
@@ -654,6 +664,107 @@ def umask(mask: int = 0) -> t.Iterator[None]:
         yield
     finally:
         os.umask(orig_mask)
+
+
+@t.overload
+def write(
+    file: T_PATHLIKE, contents: str, mode: T_WRITE_ONLY_TEXT_MODES = "w", **open_kwargs: t.Any
+) -> None:
+    ...  # pragma: no cover
+
+
+@t.overload
+def write(
+    file: T_PATHLIKE, contents: bytes, mode: T_WRITE_ONLY_BIN_MODES, **open_kwargs: t.Any
+) -> None:
+    ...  # pragma: no cover
+
+
+@t.overload
+def write(
+    file: T_PATHLIKE, contents: t.Union[str, bytes], mode: str = "w", **open_kwargs: t.Any
+) -> None:
+    ...  # pragma: no cover
+
+
+def write(
+    file: T_PATHLIKE, contents: t.Union[str, bytes], mode: str = "w", **open_kwargs: t.Any
+) -> None:
+    """
+    Write contents to file.
+
+    Args:
+        file: File to write.
+        contents: Contents to write.
+        mode: File open mode.
+        **open_kwargs: Additional keyword arguments to pass to ``open``.
+    """
+    if mode not in WRITE_ONLY_MODES:
+        raise ValueError(f"Invalid write-only mode: {mode}")
+
+    with open(file, mode, **open_kwargs) as fp:
+        fp.write(contents)
+
+
+def writetext(file: T_PATHLIKE, contents: str, mode: str = "w", **open_kwargs: t.Any) -> None:
+    """
+    Write text contents to file.
+
+    Args:
+        file: File to write.
+        contents: Contents to write.
+        mode: File open mode.
+        **open_kwargs: Additional keyword arguments to pass to ``open``.
+    """
+    if mode not in WRITE_ONLY_TEXT_MODES:
+        raise ValueError(f"Invalid write-only text-mode: {mode}")
+    write(file, contents, mode, **open_kwargs)
+
+
+def writebytes(file: T_PATHLIKE, contents: bytes, mode: str = "wb", **open_kwargs: t.Any) -> None:
+    """
+    Write binary contents to file.
+
+    Args:
+        file: File to write.
+        contents: Contents to write.
+        mode: File open mode.
+        **open_kwargs: Additional keyword arguments to pass to ``open``.
+    """
+    if mode not in WRITE_ONLY_BIN_MODES:
+        raise ValueError(f"Invalid write-only binary-mode: {mode}")
+    write(file, contents, mode, **open_kwargs)
+
+
+def writelines(
+    file: T_PATHLIKE,
+    items: t.Iterable[t.AnyStr],
+    mode: str = "w",
+    *,
+    ending: t.Optional[t.AnyStr] = None,
+    **open_kwargs: t.Any,
+) -> None:
+    """
+    Write lines to file.
+
+    Args:
+        file: File to write.
+        items: Items to write.
+        mode: File open mode.
+        ending: Line ending to use. Defaults to newline.
+        **open_kwargs: Additional keyword arguments to pass to ``open``.
+    """
+    if mode not in WRITE_ONLY_MODES:
+        raise ValueError(f"Invalid write-only mode: {mode}")
+
+    if ending is None:
+        ending = t.cast(t.AnyStr, "\n")
+        if "b" in mode:
+            ending = t.cast(t.AnyStr, b"\n")
+
+    lines = (item + ending for item in items)
+    with open(file, mode, **open_kwargs) as fp:
+        fp.writelines(lines)
 
 
 def _candidate_temp_pathname(

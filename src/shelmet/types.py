@@ -14,7 +14,12 @@ T_STD_FILE = t.Union[int, t.IO[t.Any]]
 T_RUN_ARGS = t.Union[str, bytes, None, t.Iterable[t.Union[str, bytes, None]]]
 T_READ_ONLY_TEXT_MODES = Literal["r", "rt", "tr"]
 T_READ_ONLY_BIN_MODES = Literal["rb", "br"]
+T_WRITE_ONLY_TEXT_MODES = Literal["w", "wt", "tw", "a", "x"]
+T_WRITE_ONLY_BIN_MODES = Literal["wb", "bw", "ab", "ba", "xb", "bx"]
 
 READ_ONLY_TEXT_MODES = t.get_args(T_READ_ONLY_TEXT_MODES)
 READ_ONLY_BIN_MODES = t.get_args(T_READ_ONLY_BIN_MODES)
 READ_ONLY_MODES = READ_ONLY_TEXT_MODES + READ_ONLY_BIN_MODES
+WRITE_ONLY_TEXT_MODES = t.get_args(T_WRITE_ONLY_TEXT_MODES)
+WRITE_ONLY_BIN_MODES = t.get_args(T_WRITE_ONLY_BIN_MODES)
+WRITE_ONLY_MODES = WRITE_ONLY_TEXT_MODES + WRITE_ONLY_BIN_MODES

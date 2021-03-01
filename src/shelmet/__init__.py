@@ -26,5 +26,9 @@ from .filesystem import (
     rmfile,
     touch,
     umask,
+    write,
+    writebytes,
+    writelines,
+    writetext,
 )
 from .path import cd, cwd, homedir, ls, lsdirs, lsfiles, reljoin, walk, walkdirs, walkfiles
