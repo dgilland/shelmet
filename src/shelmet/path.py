@@ -7,11 +7,11 @@ from pathlib import Path
 import typing as t
 from typing import Iterable
 
-from .types import T_LS_FILTER, T_LS_FILTER_FN, T_LS_FILTERABLE, T_PATHLIKE
+from .types import LsFilter, LsFilterable, LsFilterFn, StrPath
 
 
 @contextmanager
-def cd(path: T_PATHLIKE) -> t.Iterator[None]:
+def cd(path: StrPath) -> t.Iterator[None]:
     """
     Context manager that changes the working directory on enter and restores it on exit.
 
@@ -41,13 +41,13 @@ def homedir():
 
 
 def ls(
-    path: T_PATHLIKE = ".",
+    path: StrPath = ".",
     *,
     recursive: bool = False,
     only_files: bool = False,
     only_dirs: bool = False,
-    include: t.Optional[T_LS_FILTER] = None,
-    exclude: t.Optional[T_LS_FILTER] = None,
+    include: t.Optional[LsFilter] = None,
+    exclude: t.Optional[LsFilter] = None,
 ) -> t.Generator[Path, None, None]:
     """
     Yield directory contents as ``Path`` objects.
@@ -106,10 +106,10 @@ def ls(
 
 
 def lsfiles(
-    path: T_PATHLIKE = ".",
+    path: StrPath = ".",
     *,
-    include: t.Optional[T_LS_FILTER] = None,
-    exclude: t.Optional[T_LS_FILTER] = None,
+    include: t.Optional[LsFilter] = None,
+    exclude: t.Optional[LsFilter] = None,
 ) -> t.Generator[Path, None, None]:
     """
     Yield only files in directory as ``Path`` objects.
@@ -137,10 +137,10 @@ def lsfiles(
 
 
 def lsdirs(
-    path: T_PATHLIKE = ".",
+    path: StrPath = ".",
     *,
-    include: t.Optional[T_LS_FILTER] = None,
-    exclude: t.Optional[T_LS_FILTER] = None,
+    include: t.Optional[LsFilter] = None,
+    exclude: t.Optional[LsFilter] = None,
 ) -> t.Generator[Path, None, None]:
     """
     Yield only directories in directory as ``Path`` objects.
@@ -168,11 +168,11 @@ def lsdirs(
 
 
 def _ls(
-    path: T_PATHLIKE = ".",
+    path: StrPath = ".",
     *,
     recursive: bool = False,
-    include_filters: t.Optional[t.List[T_LS_FILTER_FN]] = None,
-    exclude_filters: t.Optional[t.List[T_LS_FILTER_FN]] = None,
+    include_filters: t.Optional[t.List[LsFilterFn]] = None,
+    exclude_filters: t.Optional[t.List[LsFilterFn]] = None,
 ) -> t.Generator[Path, None, None]:
     scanner = os.scandir(Path(path))
     recurse_into: t.List[str] = []
@@ -211,11 +211,9 @@ def _ls(
 
 
 def _make_ls_filter(
-    only_files: bool = False,
-    only_dirs: bool = False,
-    filterable: t.Optional[T_LS_FILTERABLE] = None,
-) -> T_LS_FILTER_FN:
-    filter_fn: t.Optional[T_LS_FILTER_FN] = None
+    only_files: bool = False, only_dirs: bool = False, filterable: t.Optional[LsFilterable] = None
+) -> LsFilterFn:
+    filter_fn: t.Optional[LsFilterFn] = None
     if filterable:
         filter_fn = _make_ls_filterable_fn(filterable)
 
@@ -232,8 +230,8 @@ def _make_ls_filter(
     return _ls_filter
 
 
-def _make_ls_filterable_fn(filterable: T_LS_FILTERABLE) -> T_LS_FILTER_FN:
-    _ls_filterable_fn: T_LS_FILTER_FN
+def _make_ls_filterable_fn(filterable: LsFilterable) -> LsFilterFn:
+    _ls_filterable_fn: LsFilterFn
 
     if isinstance(filterable, str):
 
@@ -258,7 +256,7 @@ def _make_ls_filterable_fn(filterable: T_LS_FILTERABLE) -> T_LS_FILTER_FN:
     return _ls_filterable_fn
 
 
-def reljoin(*paths: T_PATHLIKE) -> str:
+def reljoin(*paths: StrPath) -> str:
     """
     Like ``os.path.join`` except that all paths are treated as relative to the previous one so that
     an absolute path in the middle will extend the existing path instead of becoming the new root
@@ -272,12 +270,12 @@ def reljoin(*paths: T_PATHLIKE) -> str:
 
 
 def walk(
-    path: T_PATHLIKE = ".",
+    path: StrPath = ".",
     *,
     only_files: bool = False,
     only_dirs: bool = False,
-    include: t.Optional[T_LS_FILTER] = None,
-    exclude: t.Optional[T_LS_FILTER] = None,
+    include: t.Optional[LsFilter] = None,
+    exclude: t.Optional[LsFilter] = None,
 ) -> t.Generator[Path, None, None]:
     """
     Recursively yield all directory contents as ``Path`` objects.
@@ -314,10 +312,10 @@ def walk(
 
 
 def walkfiles(
-    path: T_PATHLIKE = ".",
+    path: StrPath = ".",
     *,
-    include: t.Optional[T_LS_FILTER] = None,
-    exclude: t.Optional[T_LS_FILTER] = None,
+    include: t.Optional[LsFilter] = None,
+    exclude: t.Optional[LsFilter] = None,
 ) -> t.Generator[Path, None, None]:
     """
     Recursively yield only files in directory as ``Path`` objects.
@@ -345,10 +343,10 @@ def walkfiles(
 
 
 def walkdirs(
-    path: T_PATHLIKE = ".",
+    path: StrPath = ".",
     *,
-    include: t.Optional[T_LS_FILTER] = None,
-    exclude: t.Optional[T_LS_FILTER] = None,
+    include: t.Optional[LsFilter] = None,
+    exclude: t.Optional[LsFilter] = None,
 ) -> t.Generator[Path, None, None]:
     """
     Recursively yield only directories in directory as ``Path`` objects.

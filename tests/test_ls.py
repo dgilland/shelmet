@@ -8,7 +8,7 @@ import pytest
 from pytest import param
 
 import shelmet as sh
-from shelmet.types import T_LS_FILTER
+from shelmet.types import LsFilter
 
 from .utils import FakeDir, FakeFile
 
@@ -193,7 +193,7 @@ def test_ls(
         ),
     ],
 )
-def test_ls__includes_on_multiple_types(tmp_path: Path, include: T_LS_FILTER):
+def test_ls__includes_on_multiple_types(tmp_path: Path, include: LsFilter):
     items: t.List[t.Union[FakeDir, FakeFile]] = [
         FakeDir("a_dir_include"),
         FakeDir("b_dir"),
@@ -275,7 +275,7 @@ def test_ls__uses_only_files_and_only_dirs_in_include(
         ),
     ],
 )
-def test_ls__excludes_on_multiple_types(tmp_path: Path, exclude: T_LS_FILTER):
+def test_ls__excludes_on_multiple_types(tmp_path: Path, exclude: LsFilter):
     items: t.List[t.Union[FakeDir, FakeFile]] = [
         FakeDir("a_dir_exclude"),
         FakeDir("b_dir"),

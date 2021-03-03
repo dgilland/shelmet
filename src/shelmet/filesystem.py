@@ -13,14 +13,14 @@ import typing as t
 
 from .types import (
     READ_ONLY_MODES,
-    T_PATHLIKE,
-    T_READ_ONLY_BIN_MODES,
-    T_READ_ONLY_TEXT_MODES,
-    T_WRITE_ONLY_BIN_MODES,
-    T_WRITE_ONLY_TEXT_MODES,
     WRITE_ONLY_BIN_MODES,
     WRITE_ONLY_MODES,
     WRITE_ONLY_TEXT_MODES,
+    ReadOnlyBinMode,
+    ReadOnlyTextMode,
+    StrPath,
+    WriteOnlyBinMode,
+    WriteOnlyTextMode,
 )
 
 
@@ -34,9 +34,7 @@ DEFAULT_CHUNK_SIZE = io.DEFAULT_BUFFER_SIZE
 
 
 @contextmanager
-def atomicdir(
-    dir: T_PATHLIKE, *, skip_sync: bool = False, overwrite: bool = True
-) -> t.Iterator[Path]:
+def atomicdir(dir: StrPath, *, skip_sync: bool = False, overwrite: bool = True) -> t.Iterator[Path]:
     """
     Context-manager that is used to atomically create a directory and its contents.
 
@@ -86,7 +84,7 @@ def atomicdir(
 
 @contextmanager
 def atomicfile(
-    file: T_PATHLIKE,
+    file: StrPath,
     mode: str = "w",
     *,
     skip_sync: bool = False,
@@ -150,7 +148,7 @@ def atomicfile(
 
 
 def backup(
-    src: T_PATHLIKE,
+    src: StrPath,
     *,
     timestamp: t.Optional[str] = "%Y-%m-%dT%H:%M:%S.%f%z",
     utc: bool = False,
@@ -159,8 +157,8 @@ def backup(
     suffix: str = "~",
     hidden: bool = False,
     overwrite: bool = False,
-    dir: t.Optional[T_PATHLIKE] = None,
-    namer: t.Optional[t.Callable[[Path], T_PATHLIKE]] = None,
+    dir: t.Optional[StrPath] = None,
+    namer: t.Optional[t.Callable[[Path], StrPath]] = None,
 ) -> Path:
     """
     Create a backup of a file or directory.
@@ -248,7 +246,7 @@ def _backup_namer(
     prefix: str = "",
     suffix: str = "~",
     hidden: bool = False,
-    dir: t.Optional[T_PATHLIKE] = None,
+    dir: t.Optional[StrPath] = None,
 ) -> Path:
     if not dir:
         dir = src.parent
@@ -278,7 +276,7 @@ def _backup_namer(
     return dst
 
 
-def cp(src: T_PATHLIKE, dst: T_PATHLIKE, *, follow_symlinks: bool = True) -> None:
+def cp(src: StrPath, dst: StrPath, *, follow_symlinks: bool = True) -> None:
     """
 
     Args:
@@ -325,7 +323,7 @@ def cp(src: T_PATHLIKE, dst: T_PATHLIKE, *, follow_symlinks: bool = True) -> Non
             raise
 
 
-def dirsync(path: T_PATHLIKE) -> None:
+def dirsync(path: StrPath) -> None:
     """
     Force sync on directory.
 
@@ -403,7 +401,7 @@ def fsync(fd: t.Union[t.IO, int]) -> None:
         os.fsync(fileno)
 
 
-def getdirsize(path: T_PATHLIKE, pattern: str = "**/*") -> int:
+def getdirsize(path: StrPath, pattern: str = "**/*") -> int:
     """
     Return total size of directory's contents.
 
@@ -427,7 +425,7 @@ def getdirsize(path: T_PATHLIKE, pattern: str = "**/*") -> int:
     return total_size
 
 
-def mkdir(*paths: T_PATHLIKE, mode: int = 0o777, exist_ok: bool = True) -> None:
+def mkdir(*paths: StrPath, mode: int = 0o777, exist_ok: bool = True) -> None:
     """
     Recursively create directories in `paths` along with any parent directories that don't already
     exists.
@@ -444,7 +442,7 @@ def mkdir(*paths: T_PATHLIKE, mode: int = 0o777, exist_ok: bool = True) -> None:
         os.makedirs(path, mode=mode, exist_ok=exist_ok)
 
 
-def mv(src: T_PATHLIKE, dst: T_PATHLIKE) -> None:
+def mv(src: StrPath, dst: StrPath) -> None:
     """
     Move source file or directory to destination.
 
@@ -490,21 +488,21 @@ def mv(src: T_PATHLIKE, dst: T_PATHLIKE) -> None:
 
 
 @t.overload
-def read(file: T_PATHLIKE, mode: T_READ_ONLY_TEXT_MODES = "r", **open_kwargs: t.Any) -> str:
+def read(file: StrPath, mode: ReadOnlyTextMode = "r", **open_kwargs: t.Any) -> str:
     ...  # pragma: no cover
 
 
 @t.overload
-def read(file: T_PATHLIKE, mode: T_READ_ONLY_BIN_MODES, **open_kwargs: t.Any) -> bytes:
+def read(file: StrPath, mode: ReadOnlyBinMode, **open_kwargs: t.Any) -> bytes:
     ...  # pragma: no cover
 
 
 @t.overload
-def read(file: T_PATHLIKE, mode: str = "r", **open_kwargs: t.Any) -> t.Union[str, bytes]:
+def read(file: StrPath, mode: str = "r", **open_kwargs: t.Any) -> t.Union[str, bytes]:
     ...  # pragma: no cover
 
 
-def read(file: T_PATHLIKE, mode: str = "r", **open_kwargs: t.Any) -> t.Union[str, bytes]:
+def read(file: StrPath, mode: str = "r", **open_kwargs: t.Any) -> t.Union[str, bytes]:
     """
     Return contents of file.
 
@@ -520,7 +518,7 @@ def read(file: T_PATHLIKE, mode: str = "r", **open_kwargs: t.Any) -> t.Union[str
         return fp.read()
 
 
-def readbytes(file: T_PATHLIKE, **open_kwargs: t.Any) -> bytes:
+def readbytes(file: StrPath, **open_kwargs: t.Any) -> bytes:
     """
     Return binary contents of file.
 
@@ -533,7 +531,7 @@ def readbytes(file: T_PATHLIKE, **open_kwargs: t.Any) -> bytes:
     return read(file, "rb", **open_kwargs)
 
 
-def readtext(file: T_PATHLIKE, **open_kwargs: t.Any) -> str:
+def readtext(file: StrPath, **open_kwargs: t.Any) -> str:
     """
     Return text contents of file.
 
@@ -548,8 +546,8 @@ def readtext(file: T_PATHLIKE, **open_kwargs: t.Any) -> str:
 
 @t.overload
 def readchunks(
-    file: T_PATHLIKE,
-    mode: T_READ_ONLY_TEXT_MODES = "r",
+    file: StrPath,
+    mode: ReadOnlyTextMode = "r",
     *,
     size: int = DEFAULT_CHUNK_SIZE,
     sep: t.Optional[str] = None,
@@ -560,8 +558,8 @@ def readchunks(
 
 @t.overload
 def readchunks(
-    file: T_PATHLIKE,
-    mode: T_READ_ONLY_BIN_MODES,
+    file: StrPath,
+    mode: ReadOnlyBinMode,
     *,
     size: int = DEFAULT_CHUNK_SIZE,
     sep: t.Optional[bytes] = None,
@@ -572,7 +570,7 @@ def readchunks(
 
 @t.overload
 def readchunks(
-    file: T_PATHLIKE,
+    file: StrPath,
     mode: str = "r",
     *,
     size: int = DEFAULT_CHUNK_SIZE,
@@ -583,7 +581,7 @@ def readchunks(
 
 
 def readchunks(
-    file: T_PATHLIKE,
+    file: StrPath,
     mode: str = "r",
     *,
     size: int = DEFAULT_CHUNK_SIZE,
@@ -644,27 +642,27 @@ def _readchunks(file, mode="r", *, size=DEFAULT_CHUNK_SIZE, sep=None, **open_kwa
 
 @t.overload
 def readlines(
-    file: T_PATHLIKE, mode: T_READ_ONLY_TEXT_MODES = "r", *, limit: int = -1, **open_kwargs: t.Any
+    file: StrPath, mode: ReadOnlyTextMode = "r", *, limit: int = -1, **open_kwargs: t.Any
 ) -> t.Generator[str, None, None]:
     ...  # pragma: no cover
 
 
 @t.overload
 def readlines(
-    file: T_PATHLIKE, mode: T_READ_ONLY_BIN_MODES, *, limit: int = -1, **open_kwargs: t.Any
+    file: StrPath, mode: ReadOnlyBinMode, *, limit: int = -1, **open_kwargs: t.Any
 ) -> t.Generator[bytes, None, None]:
     ...  # pragma: no cover
 
 
 @t.overload
 def readlines(
-    file: T_PATHLIKE, mode: str = "r", *, limit: int = -1, **open_kwargs: t.Any
+    file: StrPath, mode: str = "r", *, limit: int = -1, **open_kwargs: t.Any
 ) -> t.Generator[t.Union[str, bytes], None, None]:
     ...  # pragma: no cover
 
 
 def readlines(
-    file: T_PATHLIKE, mode: str = "r", *, limit: int = -1, **open_kwargs: t.Any
+    file: StrPath, mode: str = "r", *, limit: int = -1, **open_kwargs: t.Any
 ) -> t.Generator[t.Union[str, bytes], None, None]:
     """
     Yield each line of a file.
@@ -697,7 +695,7 @@ def _readlines(file, mode="r", *, limit=-1, **open_kwargs):
             pass
 
 
-def rm(*paths: T_PATHLIKE) -> None:
+def rm(*paths: StrPath) -> None:
     """
     Delete files and directories.
 
@@ -721,7 +719,7 @@ def rm(*paths: T_PATHLIKE) -> None:
             pass
 
 
-def rmdir(*dirs: T_PATHLIKE) -> None:
+def rmdir(*dirs: StrPath) -> None:
     """
     Delete directories.
 
@@ -745,7 +743,7 @@ def rmdir(*dirs: T_PATHLIKE) -> None:
             pass
 
 
-def rmfile(*files: T_PATHLIKE) -> None:
+def rmfile(*files: StrPath) -> None:
     """
     Delete files.
 
@@ -765,7 +763,7 @@ def rmfile(*files: T_PATHLIKE) -> None:
             pass
 
 
-def touch(*paths: T_PATHLIKE) -> None:
+def touch(*paths: StrPath) -> None:
     """
     Touch files.
 
@@ -798,27 +796,25 @@ def umask(mask: int = 0) -> t.Iterator[None]:
 
 @t.overload
 def write(
-    file: T_PATHLIKE, contents: str, mode: T_WRITE_ONLY_TEXT_MODES = "w", **open_kwargs: t.Any
+    file: StrPath, contents: str, mode: WriteOnlyTextMode = "w", **open_kwargs: t.Any
 ) -> None:
     ...  # pragma: no cover
 
 
 @t.overload
-def write(
-    file: T_PATHLIKE, contents: bytes, mode: T_WRITE_ONLY_BIN_MODES, **open_kwargs: t.Any
-) -> None:
+def write(file: StrPath, contents: bytes, mode: WriteOnlyBinMode, **open_kwargs: t.Any) -> None:
     ...  # pragma: no cover
 
 
 @t.overload
 def write(
-    file: T_PATHLIKE, contents: t.Union[str, bytes], mode: str = "w", **open_kwargs: t.Any
+    file: StrPath, contents: t.Union[str, bytes], mode: str = "w", **open_kwargs: t.Any
 ) -> None:
     ...  # pragma: no cover
 
 
 def write(
-    file: T_PATHLIKE, contents: t.Union[str, bytes], mode: str = "w", **open_kwargs: t.Any
+    file: StrPath, contents: t.Union[str, bytes], mode: str = "w", **open_kwargs: t.Any
 ) -> None:
     """
     Write contents to file.
@@ -836,7 +832,7 @@ def write(
         fp.write(contents)
 
 
-def writetext(file: T_PATHLIKE, contents: str, mode: str = "w", **open_kwargs: t.Any) -> None:
+def writetext(file: StrPath, contents: str, mode: str = "w", **open_kwargs: t.Any) -> None:
     """
     Write text contents to file.
 
@@ -851,7 +847,7 @@ def writetext(file: T_PATHLIKE, contents: str, mode: str = "w", **open_kwargs: t
     write(file, contents, mode, **open_kwargs)
 
 
-def writebytes(file: T_PATHLIKE, contents: bytes, mode: str = "wb", **open_kwargs: t.Any) -> None:
+def writebytes(file: StrPath, contents: bytes, mode: str = "wb", **open_kwargs: t.Any) -> None:
     """
     Write binary contents to file.
 
@@ -867,7 +863,7 @@ def writebytes(file: T_PATHLIKE, contents: bytes, mode: str = "wb", **open_kwarg
 
 
 def writelines(
-    file: T_PATHLIKE,
+    file: StrPath,
     items: t.Iterable[t.AnyStr],
     mode: str = "w",
     *,
@@ -898,7 +894,7 @@ def writelines(
 
 
 def _candidate_temp_pathname(
-    path: T_PATHLIKE = "", prefix: T_PATHLIKE = "", suffix: T_PATHLIKE = "", hidden: bool = True
+    path: StrPath = "", prefix: StrPath = "", suffix: StrPath = "", hidden: bool = True
 ) -> str:
     tries = 100
     for _ in range(tries):
@@ -913,7 +909,7 @@ def _candidate_temp_pathname(
 
 
 def _random_name(
-    path: T_PATHLIKE = "", prefix: T_PATHLIKE = "", suffix: T_PATHLIKE = "", length: int = 8
+    path: StrPath = "", prefix: StrPath = "", suffix: StrPath = "", length: int = 8
 ) -> str:
     _pid, _random = getattr(_random_name, "_state", (None, None))
     if _pid != os.getpid() or not _random:

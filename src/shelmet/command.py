@@ -7,7 +7,7 @@ import subprocess
 import typing as t
 from typing import Iterable
 
-from .types import T_PATHLIKE, T_RUN_ARGS, T_STD_FILE
+from .types import RunArgs, StdFile, StrPath
 
 
 class Command:
@@ -72,14 +72,14 @@ class Command:
 
     def __init__(
         self,
-        *args: T_RUN_ARGS,
-        stdin: t.Optional[T_STD_FILE] = None,
+        *args: RunArgs,
+        stdin: t.Optional[StdFile] = None,
         input: t.Optional[t.Union[str, bytes]] = None,
-        stdout: t.Optional[T_STD_FILE] = subprocess.PIPE,
-        stderr: t.Optional[T_STD_FILE] = subprocess.PIPE,
+        stdout: t.Optional[StdFile] = subprocess.PIPE,
+        stderr: t.Optional[StdFile] = subprocess.PIPE,
         capture_output: bool = True,
         combine_output: bool = False,
-        cwd: t.Optional[T_PATHLIKE] = None,
+        cwd: t.Optional[StrPath] = None,
         timeout: t.Optional[t.Union[float, int]] = None,
         check: bool = True,
         encoding: t.Optional[str] = None,
@@ -157,7 +157,7 @@ class Command:
         return f"{self.__class__.__name__}({kv_out})"
 
     @classmethod
-    def from_command(cls, command, *extra_args: T_RUN_ARGS, **override_kwargs: t.Any) -> "Command":
+    def from_command(cls, command, *extra_args: RunArgs, **override_kwargs: t.Any) -> "Command":
         run_args = command.args
         if extra_args:
             run_args = run_args + _parse_run_args(
@@ -184,14 +184,14 @@ class Command:
 
     def pipe(
         self,
-        *args: T_RUN_ARGS,
-        stdin: t.Optional[T_STD_FILE] = None,
+        *args: RunArgs,
+        stdin: t.Optional[StdFile] = None,
         input: t.Optional[t.Union[str, bytes]] = None,
-        stdout: t.Optional[T_STD_FILE] = subprocess.PIPE,
-        stderr: t.Optional[T_STD_FILE] = subprocess.PIPE,
+        stdout: t.Optional[StdFile] = subprocess.PIPE,
+        stderr: t.Optional[StdFile] = subprocess.PIPE,
         capture_output: bool = True,
         combine_output: bool = False,
-        cwd: t.Optional[T_PATHLIKE] = None,
+        cwd: t.Optional[StrPath] = None,
         timeout: t.Optional[t.Union[float, int]] = None,
         check: bool = True,
         encoding: t.Optional[str] = None,
@@ -228,14 +228,14 @@ class Command:
 
     def after(
         self,
-        *args: T_RUN_ARGS,
-        stdin: t.Optional[T_STD_FILE] = None,
+        *args: RunArgs,
+        stdin: t.Optional[StdFile] = None,
         input: t.Optional[t.Union[str, bytes]] = None,
-        stdout: t.Optional[T_STD_FILE] = subprocess.PIPE,
-        stderr: t.Optional[T_STD_FILE] = subprocess.PIPE,
+        stdout: t.Optional[StdFile] = subprocess.PIPE,
+        stderr: t.Optional[StdFile] = subprocess.PIPE,
         capture_output: bool = True,
         combine_output: bool = False,
-        cwd: t.Optional[T_PATHLIKE] = None,
+        cwd: t.Optional[StrPath] = None,
         timeout: t.Optional[t.Union[float, int]] = None,
         check: bool = True,
         encoding: t.Optional[str] = None,
@@ -273,14 +273,14 @@ class Command:
 
     def and_(
         self,
-        *args: T_RUN_ARGS,
-        stdin: t.Optional[T_STD_FILE] = None,
+        *args: RunArgs,
+        stdin: t.Optional[StdFile] = None,
         input: t.Optional[t.Union[str, bytes]] = None,
-        stdout: t.Optional[T_STD_FILE] = subprocess.PIPE,
-        stderr: t.Optional[T_STD_FILE] = subprocess.PIPE,
+        stdout: t.Optional[StdFile] = subprocess.PIPE,
+        stderr: t.Optional[StdFile] = subprocess.PIPE,
         capture_output: bool = True,
         combine_output: bool = False,
-        cwd: t.Optional[T_PATHLIKE] = None,
+        cwd: t.Optional[StrPath] = None,
         timeout: t.Optional[t.Union[float, int]] = None,
         check: bool = True,
         encoding: t.Optional[str] = None,
@@ -317,14 +317,14 @@ class Command:
 
     def or_(
         self,
-        *args: T_RUN_ARGS,
-        stdin: t.Optional[T_STD_FILE] = None,
+        *args: RunArgs,
+        stdin: t.Optional[StdFile] = None,
         input: t.Optional[t.Union[str, bytes]] = None,
-        stdout: t.Optional[T_STD_FILE] = subprocess.PIPE,
-        stderr: t.Optional[T_STD_FILE] = subprocess.PIPE,
+        stdout: t.Optional[StdFile] = subprocess.PIPE,
+        stderr: t.Optional[StdFile] = subprocess.PIPE,
         capture_output: bool = True,
         combine_output: bool = False,
-        cwd: t.Optional[T_PATHLIKE] = None,
+        cwd: t.Optional[StrPath] = None,
         timeout: t.Optional[t.Union[float, int]] = None,
         check: bool = True,
         encoding: t.Optional[str] = None,
@@ -359,7 +359,7 @@ class Command:
             **popen_kwargs,
         )
 
-    def run(self, *extra_args: T_RUN_ARGS, **override_kwargs: t.Any) -> subprocess.CompletedProcess:
+    def run(self, *extra_args: RunArgs, **override_kwargs: t.Any) -> subprocess.CompletedProcess:
         """
         Wrapper around ``subprocess.run`` that uses this class' arguments as defaults.
 
@@ -552,14 +552,14 @@ def _flatten(items: t.Iterable) -> t.Generator[t.Any, None, None]:
 
 
 def cmd(
-    *args: T_RUN_ARGS,
-    stdin: t.Optional[T_STD_FILE] = None,
+    *args: RunArgs,
+    stdin: t.Optional[StdFile] = None,
     input: t.Optional[t.Union[str, bytes]] = None,
-    stdout: t.Optional[T_STD_FILE] = subprocess.PIPE,
-    stderr: t.Optional[T_STD_FILE] = subprocess.PIPE,
+    stdout: t.Optional[StdFile] = subprocess.PIPE,
+    stderr: t.Optional[StdFile] = subprocess.PIPE,
     capture_output: bool = True,
     combine_output: bool = False,
-    cwd: t.Optional[T_PATHLIKE] = None,
+    cwd: t.Optional[StrPath] = None,
     timeout: t.Optional[t.Union[float, int]] = None,
     check: bool = True,
     encoding: t.Optional[str] = None,
@@ -596,14 +596,14 @@ def cmd(
 
 
 def run(
-    *args: T_RUN_ARGS,
-    stdin: t.Optional[T_STD_FILE] = None,
+    *args: RunArgs,
+    stdin: t.Optional[StdFile] = None,
     input: t.Optional[t.Union[str, bytes]] = None,
-    stdout: t.Optional[T_STD_FILE] = subprocess.PIPE,
-    stderr: t.Optional[T_STD_FILE] = subprocess.PIPE,
+    stdout: t.Optional[StdFile] = subprocess.PIPE,
+    stderr: t.Optional[StdFile] = subprocess.PIPE,
     capture_output: bool = True,
     combine_output: bool = False,
-    cwd: t.Optional[T_PATHLIKE] = None,
+    cwd: t.Optional[StrPath] = None,
     timeout: t.Optional[t.Union[float, int]] = None,
     check: bool = True,
     encoding: t.Optional[str] = None,
