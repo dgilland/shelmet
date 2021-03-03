@@ -9,6 +9,7 @@ from .command import Command, cmd, run
 from .filesystem import (
     atomicdir,
     atomicfile,
+    backup,
     cp,
     dirsync,
     environ,

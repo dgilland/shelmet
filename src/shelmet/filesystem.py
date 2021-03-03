@@ -1,6 +1,7 @@
 """The filesystem module contains utilities for interacting with the file system."""
 
 from contextlib import contextmanager
+from datetime import datetime, timezone
 import errno
 import io
 import os
@@ -146,6 +147,135 @@ def atomicfile(
     finally:
         # In case something went wrong that prevented moving tmp_file to dst.
         rm(tmp_file)
+
+
+def backup(
+    src: T_PATHLIKE,
+    *,
+    timestamp: t.Optional[str] = "%Y-%m-%dT%H:%M:%S.%f%z",
+    utc: bool = False,
+    epoch: bool = False,
+    prefix: str = "",
+    suffix: str = "~",
+    hidden: bool = False,
+    overwrite: bool = False,
+    dir: t.Optional[T_PATHLIKE] = None,
+    namer: t.Optional[t.Callable[[Path], T_PATHLIKE]] = None,
+) -> Path:
+    """
+    Create a backup of a file or directory.
+
+    The format of the backup name is ``{prefix}{src}.{timestamp}{suffix}``.
+
+    By default, the backup will be created in the same parent directory as the source and be named
+    like ``"src.YYYY-MM-DDThh:mm:ss.ffffff~"``, where the timestamp is the current local time.
+
+    If `utc` is ``True``, then the timestamp will be in the UTC timezone.
+
+    If `epoch` is ``True``, then the timestamp will be the Unix time as returned by
+    ``time.time()`` instead of the strftime format.
+
+    If `hidden` is ``True``, then a ``"."`` will be prepended to the `prefix`. It won't be added if
+    `prefix` already starts with a ``"."``.
+
+    If `dir` is given, it will be used as the parent directory of the backup instead of the source's
+    parent directory.
+
+    If `overwrite` is ``True`` and the backup location already exists, then it will be overwritten.
+
+    If `namer` is given, it will be called with ``namer(src)`` and it should return the full
+    destination path of the backup. All other arguments to this function will be ignored except for
+    `overwrite`.
+
+    Args:
+        src: Source file or directory to backup.
+        timestamp: Timestamp strftime-format string or ``None`` to exclude timestamp from backup
+            name. Defaults to ISO-8601 format.
+        utc: Whether to use UTC time instead of local time for the timestamp.
+        epoch: Whether to use the Unix time for the timestamp instead of the strftime format in
+            `timestamp`.
+        prefix: Name prefix to prepend to the backup.
+        suffix: Name suffix to append to the backup.
+        hidden: Whether to ensure that the backup location is a hidden file or directory.
+        overwrite: Whether to overwrite an existing file or directory when backing up.
+        dir: Set the parent directory of the backup. Defaults to ``None`` which will use the parent
+            directory of the `src`.
+        namer: Naming function that can be used to return the full path of the backup location. It
+            will be passed the `src` value as a ``pathlib.Path`` object as a positional argument. It
+            should return the destination path of the backup as a ``str`` or ``pathlib.Path``.
+
+    Returns:
+        Backup location.
+    """
+    if not isinstance(timestamp, str) and timestamp is not None:
+        raise ValueError(
+            f"timestamp should be a strftime-formatted string or None, not {timestamp!r}"
+        )
+
+    src = Path(src).resolve()
+
+    if namer:
+        dst = Path(namer(src)).resolve()
+    else:
+        dst = _backup_namer(
+            src,
+            timestamp=timestamp,
+            utc=utc,
+            epoch=epoch,
+            prefix=prefix,
+            suffix=suffix,
+            hidden=hidden,
+            dir=dir,
+        )
+
+    if src == dst:
+        raise FileExistsError(errno.EEXIST, f"Backup destination cannot be the source: {src}")
+
+    if not overwrite and dst.exists():
+        raise FileExistsError(errno.EEXIST, f"Backup destination already exists: {dst}")
+
+    cp(src, dst)
+
+    return dst
+
+
+def _backup_namer(
+    src: Path,
+    *,
+    timestamp: t.Optional[str] = "%Y-%m-%dT%H:%M:%S.%f%z",
+    utc: bool = False,
+    epoch: bool = False,
+    prefix: str = "",
+    suffix: str = "~",
+    hidden: bool = False,
+    dir: t.Optional[T_PATHLIKE] = None,
+) -> Path:
+    if not dir:
+        dir = src.parent
+    else:
+        dir = Path(dir).resolve()
+
+    if hidden and not prefix.startswith("."):
+        prefix = f".{prefix}"
+
+    ts: t.Union[str, float] = ""
+    if timestamp is not None:
+        tz = None
+        if utc:
+            tz = timezone.utc
+        dt = datetime.now(tz)
+
+        if epoch:
+            ts = dt.timestamp()
+        else:
+            ts = dt.strftime(timestamp)
+
+        ts = f".{ts}"
+
+    name = f"{prefix}{src.name}{ts}{suffix}"
+    dst = dir / name
+
+    return dst
 
 
 def cp(src: T_PATHLIKE, dst: T_PATHLIKE, *, follow_symlinks: bool = True) -> None:
