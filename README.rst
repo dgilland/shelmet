@@ -169,10 +169,14 @@ Perform file IO:
     sh.write("test.bin", b"some bytes")
     sh.write("test.bin", b" some more bytes", "ab")
 
-    sh.writelines("output.txt", ["1", "2", "3"])  # -> "1\n2\n3\n"
+    sh.writelines("output.txt", ["1", "2", "3"])              # -> "1\n2\n3\n"
     sh.writelines("output.txt", (str(i) for i in range(10)))  # -> "0\n1\n2\n3\n4\n5\n6\n7\n8\n9\n"
 
-    text = sh.read("test.txt")  # -> "some text\nsome more text\n"
+    # Write to a file atomically. See sh.atomicfile for more details.
+    sh.write("test.txt", "content", atomic=True)
+    sh.writelines("test.txt", ["content"], atomic=True)
+
+    text = sh.read("test.txt")        # -> "some text\nsome more text\n"
     data = sh.read("text.bin", "rb")  # -> b"some bytes some more bytes"
 
     for line in sh.readlines("test.txt"):
@@ -194,21 +198,21 @@ Backup files:
 .. code-block:: python
 
     backup_file = sh.backup("test.txt")
-    print(backup_file)  # test.txt.2021-02-24_16-19-20-276491~
-    sh.backup("test.txt", utc=True)  # -> test.txt.2021-02-24T11:19:20.276491Z~
-    sh.backup("test.txt", epoch=True)  # -> test.txt.1614878783.56201
-    sh.backup("test.txt", suffix=".bak")  # -> test.txt.2021-02-24T16:19:20.276491.bak
-    sh.backup("test.txt", suffix=".bak", timestamp=False)  # -> test.txt.bak
-    sh.backup("test.txt", prefix="BACKUP_", suffix="")  # -> BACKUP_test.txt.2021-02-24T16:19:20.276491
+    print(backup_file)                                     # test.txt.2021-02-24_16-19-20-276491~
+    sh.backup("test.txt", utc=True)                        # test.txt.2021-02-24T11:19:20.276491Z~
+    sh.backup("test.txt", epoch=True)                      # test.txt.1614878783.56201
+    sh.backup("test.txt", suffix=".bak")                   # test.txt.2021-02-24T16:19:20.276491.bak
+    sh.backup("test.txt", suffix=".bak", timestamp=False)  # test.txt.bak
+    sh.backup("test.txt", prefix="BACKUP_", suffix="")     # BACKUP_test.txt.2021-02-24T16:19:20.276491
 
     from functools import partial
     import itertools
 
     counter = itertools.count(1)
     backup = partial(sh.backup, namer=lambda src: f"{src.name}-{next(counter)}~")
-    backup("test.txt")  # -> test.txt-1~
-    backup("test.txt")  # -> test.txt-2~
-    backup("test.txt")  # -> test.txt-3~
+    backup("test.txt")  # test.txt-1~
+    backup("test.txt")  # test.txt-2~
+    backup("test.txt")  # test.txt-3~
 
 
 Write to a new file atomically where content is written to a temporary file and then moved once finished:
@@ -231,25 +235,28 @@ Write to a new file atomically where content is written to a temporary file and 
     assert os.path.exists("path/to/atomic.txt")
 
     # File mode, sync skipping, and overwrite flag can be specified to change the default behavior which is...
-    with sh.atomicfile("file.txt", "w", skip_sync=False, overwrite=True):
+    with sh.atomicfile("file.txt", "w", skip_sync=False, overwrite=True) as fp:
         pass
 
     # Additional parameters to open() can be passed as keyword arguments.
-    with sh.atomicfile("file.txt", "w", **open_kwargs):
+    with sh.atomicfile("file.txt", "w", **open_kwargs) as fp:
         pass
+
+    # To writie to a file atomically without a context manager
+    sh.write("file.txt", "content", atomic=True)
 
 
 Create a new directory atomically where its contents are written to a temporary directory and then moved once finished:
 
 .. code-block:: python
 
-    with sh.atomicdir("path/to/atomic_dir") as path:
+    with sh.atomicdir("path/to/atomic_dir") as atomic_dir:
         # Yielded path is temporary directory within the same parent directory as the destination.
         # path will be something like "path/to/.atomic_dir_QGLDfPwz_tmp"
-        some_file = path / "file.txt"
+        some_file = atomic_dir / "file.txt"
         some_file.write_text("contents")  # file written to "path/to/.atomic_dir_QGLDfPwz_tmp/file.txt"
 
-        some_dir = path / "dir"
+        some_dir = atomic_dir / "dir"
         some_dir.mkdir()  # directory created at "path/to/.atomic_dir_QGLDfPwz_tmp/dir/"
 
         # Directory doesn't exist yet.
@@ -259,7 +266,7 @@ Create a new directory atomically where its contents are written to a temporary 
     assert os.path.exists("path/to/atomic_dir")
 
     # Sync skipping and overwrite flag can be specified to change the default behavior which is...
-    with sh.atomicdir("atomic_dir", skip_sync=False, overwrite=True):
+    with sh.atomicdir("atomic_dir", skip_sync=False, overwrite=True) as atomic_dir:
         pass
 
 
