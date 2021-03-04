@@ -2,7 +2,7 @@ Changelog
 =========
 
 
-v0.5.0 (XXXX-XX-XX)
+v0.5.0 (2020-03-04)
 -------------------
 
 - Import all utility functions into ``shelmet`` namespace.
