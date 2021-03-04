@@ -1,7 +1,7 @@
 """
 The shelmet package.
 
-A collection of shell utilities
+A shell power-up for working with the file system and running subprocess commands.
 """
 
 from .__version__ import __version__

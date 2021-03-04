@@ -4,7 +4,7 @@ shelmet
 |version| |build| |coveralls| |license|
 
 
-A collection of shell utilities
+A shell power-up for working with the file system and running subprocess commands.
 
 
 Links
@@ -19,13 +19,31 @@ Links
 Features
 ========
 
-- Shell utilities like...
+- Run and define subprocess commands
+
+  - ``run``
+  - ``cmd``
+
+- Interact with files
+
+  - ``atomicdfile``, ``atomicdir``
+  - ``read``, ``readchunks``, ``readlines``
+  - ``write``, ``writechunks``
+  - ``fsync``, ``dirsync``
+
+- Execute core shell operations
 
   - ``cp``, ``mv``, ``mkdir``, ``touch``
   - ``rm``, ``rmfile``, ``rmdir``
   - ``ls``, ``lsfiles``, ``lsdirs``
   - ``walk``, ``walkfiles``, ``walkdirs``
-  - ``cd``, ``environ``
+
+- Other utilities
+
+  - ``backup``
+  - ``cd``
+  - ``environ``
+  - ``cwd``, ``homedir``
   - and more!
 
 - 100% test coverage
@@ -51,7 +69,48 @@ Import the ``sh`` module:
     import shelmet as sh
 
 
-Perform some file operations:
+Run system commands:
+
+.. code-block:: python
+
+    # sh.run() is a wrapper around subprocess.run() that defaults to output capture, text-mode,
+    # exception raising on non-zero exit codes, environment variable extension instead of
+    # replacement, and support for passing command arguments as a variable number of strings instead
+    # of just a list of strings.
+    result = sh.run("ps", "aux")
+    print(result.stdout)
+    print(result.stderr)
+
+    # stdout and stderr can be combined with...
+    result = sh.run("some", "command", combine_output=True)
+
+    # or not captured at all...
+    sh.run("...", capture_output=False)
+
+
+Create reusable run commands that support chained commands like "pipe" ``|`` , "and" ``&&``, "or" ``||``, and "after" ``;``:
+
+.. code-block:: python
+
+    # sh.cmd() returns a sh.Command object that can be used to execute a fixed command.
+    ps_aux = sh.cmd("ps", "aux")
+
+    # And has the option to pipe it's output into another command automatically.
+    grep_ps = ps_aux.pipe("grep", "-i", check=False)
+    print(grep_ps.shell_cmd)
+    # ps aux | grep -i
+
+    search_result_1 = grep_ps.run("search term 1")
+    print(search_result_1.stdout)
+
+    search_result_2 = grep_ps.run("search term 2")
+    print(search_result_2.stdout)
+
+    # Equivalent to: mkdir foo && echo 'success' || echo 'failure'
+    sh.cmd("mkdir", "foo").and_("echo", "success").or_("echo", "failure").run()
+
+
+Perform file system operations:
 
 .. code-block:: python
 
@@ -100,45 +159,56 @@ Perform some file operations:
     sh.rm("a", "b", "c", "d")
 
 
-Run system commands:
+Perform file IO:
 
 .. code-block:: python
 
-    # sh.run() is a wrapper around subprocess.run() that defaults to output capture, text-mode,
-    # exception raising on non-zero exit codes, environment variable extension instead of
-    # replacement, and support for passing command arguments as a variable number of strings instead
-    # of just a list of strings.
-    result = sh.run("ps", "aux")
-    print(result.stdout)
-    print(result.stderr)
+    sh.write("test.txt", "some text\n")
+    sh.write("test.txt", " some more text\n", "a")
 
-    # stdout and stderr can be combined with...
-    result = sh.run("some", "command", combine_output=True)
+    sh.write("test.bin", b"some bytes")
+    sh.write("test.bin", b" some more bytes", "ab")
 
-    # or not captured at all...
-    sh.run(..., capture_output=False)
+    sh.writelines("output.txt", ["1", "2", "3"])  # -> "1\n2\n3\n"
+    sh.writelines("output.txt", (str(i) for i in range(10)))  # -> "0\n1\n2\n3\n4\n5\n6\n7\n8\n9\n"
+
+    text = sh.read("test.txt")  # -> "some text\nsome more text\n"
+    data = sh.read("text.bin", "rb")  # -> b"some bytes some more bytes"
+
+    for line in sh.readlines("test.txt"):
+        print(line)
+
+    for chunk in sh.readchunks("test.txt", size=1024):
+        print(chunk)
+
+    sh.write("test.txt", "a|b|c|d")
+    items = list(sh.readchunks("test.txt", sep="|"))
+    print(items)  # -> ["a", "b", "c", "d"]
+
+    sh.write("test.txt", b"a|b|c|d", "wb")
+    assert "".join(sh.readchunks("test.txt", "rb", sep=b"|")) == b"a|b|c|d"
 
 
-Create reusable run commands that support chained commands like pipe ``|`` , and ``&&``, or ``||``, and after ``;``:
+Backup files:
 
 .. code-block:: python
 
-    # sh.cmd() returns a sh.Command object that can be used to execute a fixed command.
-    ps_aux = sh.cmd("ps", "aux")
+    backup_file = sh.backup("test.txt")
+    print(backup_file)  # test.txt.2021-02-24_16-19-20-276491~
+    sh.backup("test.txt", utc=True)  # -> test.txt.2021-02-24T11:19:20.276491Z~
+    sh.backup("test.txt", epoch=True)  # -> test.txt.1614878783.56201
+    sh.backup("test.txt", suffix=".bak")  # -> test.txt.2021-02-24T16:19:20.276491.bak
+    sh.backup("test.txt", suffix=".bak", timestamp=False)  # -> test.txt.bak
+    sh.backup("test.txt", prefix="BACKUP_", suffix="")  # -> BACKUP_test.txt.2021-02-24T16:19:20.276491
 
-    # And has the option to pipe it's output into another command automatically.
-    grep_ps = ps_aux.pipe("grep", "-i", check=False)
-    print(grep_ps.shell_cmd)
-    # ps aux | grep -i
+    from functools import partial
+    import itertools
 
-    search_result_1 = grep_ps.run("search term 1")
-    print(search_result_1.stdout)
-
-    search_result_2 = grep_ps.run("search term 2")
-    print(search_result_2.stdout)
-
-    # Equivalent to: mkdir foo && echo 'success' || echo 'failure'
-    sh.cmd("mkdir", "foo").and_("echo", "success").or_("echo", "failure").run()
+    counter = itertools.count(1)
+    backup = partial(sh.backup, namer=lambda src: f"{src.name}-{next(counter)}~")
+    backup("test.txt")  # -> test.txt-1~
+    backup("test.txt")  # -> test.txt-2~
+    backup("test.txt")  # -> test.txt-3~
 
 
 Write to a new file atomically where content is written to a temporary file and then moved once finished:
@@ -161,10 +231,12 @@ Write to a new file atomically where content is written to a temporary file and 
     assert os.path.exists("path/to/atomic.txt")
 
     # File mode, sync skipping, and overwrite flag can be specified to change the default behavior which is...
-    with sh.atomicfile("file.txt", "w", skip_sync=False, overwrite=True): pass
+    with sh.atomicfile("file.txt", "w", skip_sync=False, overwrite=True):
+        pass
 
     # Additional parameters to open() can be passed as keyword arguments.
-    with sh.atomicfile("file.txt", "w", **open_kwargs): pass
+    with sh.atomicfile("file.txt", "w", **open_kwargs):
+        pass
 
 
 Create a new directory atomically where its contents are written to a temporary directory and then moved once finished:
@@ -187,7 +259,8 @@ Create a new directory atomically where its contents are written to a temporary 
     assert os.path.exists("path/to/atomic_dir")
 
     # Sync skipping and overwrite flag can be specified to change the default behavior which is...
-    with sh.atomicdir("atomic_dir", skip_sync=False, overwrite=True): pass
+    with sh.atomicdir("atomic_dir", skip_sync=False, overwrite=True):
+        pass
 
 
 Temporarily change environment variables:
