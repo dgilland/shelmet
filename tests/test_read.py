@@ -48,6 +48,19 @@ def write_bytes(tmp_path: Path) -> t.Callable[[bytes], Path]:
 
 @pytest.fixture(
     params=[
+        param("r"),
+        param("rt"),
+        param("tr"),
+        param("rb"),
+        param("br"),
+    ]
+)
+def valid_read_only_mode(request):
+    return request.param
+
+
+@pytest.fixture(
+    params=[
         param("r+"),
         param("rb+"),
         param("w"),
@@ -73,6 +86,12 @@ def test_read__returns_binary_file_contents(write_bytes: t.Callable[[bytes], Pat
     content = b"some data"
     test_file = write_bytes(content)
     assert sh.read(test_file, "rb") == content
+
+
+def test_read__accepts_valid_mode(tmp_path: Path, valid_read_only_mode):
+    test_file = tmp_path / "test_file"
+    test_file.touch()
+    sh.read(test_file, valid_read_only_mode)
 
 
 def test_read__raises_when_mode_invalid(

@@ -29,7 +29,7 @@ StdFile = t.Union[int, t.IO[t.Any]]
 RunArgs = t.Union[str, bytes, None, t.Iterable[t.Union[str, bytes, None]]]
 ReadOnlyTextMode = Literal["r", "rt", "tr"]
 ReadOnlyBinMode = Literal["rb", "br"]
-WriteOnlyTextMode = Literal["w", "wt", "tw", "a", "x"]
+WriteOnlyTextMode = Literal["w", "wt", "tw", "a", "at", "ta", "x", "xt", "tx"]
 WriteOnlyBinMode = Literal["wb", "bw", "ab", "ba", "xb", "bx"]
 
 READ_ONLY_TEXT_MODES = _get_literal_args(ReadOnlyTextMode)

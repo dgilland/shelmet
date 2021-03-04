@@ -12,6 +12,60 @@ parametrize = pytest.mark.parametrize
 
 @pytest.fixture(
     params=[
+        param("w"),
+        param("wt"),
+        param("tw"),
+        param("a"),
+        param("at"),
+        param("ta"),
+        param("x"),
+        param("xt"),
+        param("tx"),
+        param("wb"),
+        param("bw"),
+        param("ab"),
+        param("ba"),
+        param("xb"),
+        param("bx"),
+    ]
+)
+def valid_write_only_mode(request) -> str:
+    return request.param
+
+
+@pytest.fixture(
+    params=[
+        param("wb"),
+        param("bw"),
+        param("ab"),
+        param("ba"),
+        param("xb"),
+        param("bx"),
+    ]
+)
+def valid_write_only_bin_mode(request) -> str:
+    return request.param
+
+
+@pytest.fixture(
+    params=[
+        param("w"),
+        param("wt"),
+        param("tw"),
+        param("a"),
+        param("at"),
+        param("ta"),
+        param("x"),
+        param("xt"),
+        param("tx"),
+    ]
+)
+def valid_write_only_text_mode(request) -> str:
+    return request.param
+
+
+@pytest.fixture(
+    params=[
         param("r"),
         param("r+"),
         param("rb"),
@@ -22,7 +76,7 @@ parametrize = pytest.mark.parametrize
         param("ab+"),
     ]
 )
-def invalid_write_only_mode(request):
+def invalid_write_only_mode(request) -> str:
     return request.param
 
 
@@ -42,7 +96,7 @@ def invalid_write_only_mode(request):
         param("x"),
     ]
 )
-def invalid_write_only_bin_mode(request):
+def invalid_write_only_bin_mode(request) -> str:
     return request.param
 
 
@@ -61,7 +115,7 @@ def invalid_write_only_bin_mode(request):
         param("xb"),
     ]
 )
-def invalid_write_only_text_mode(request):
+def invalid_write_only_text_mode(request) -> str:
     return request.param
 
 
@@ -87,6 +141,11 @@ def test_write(tmp_path: Path, mode: str, contents: t.Union[str, bytes]):
     assert contents == actual_contents
 
 
+def test_write__accepts_valid_mode(tmp_path: Path, valid_write_only_mode: str):
+    contents: t.Union[str, bytes] = b"" if "b" in valid_write_only_mode else ""
+    sh.write(tmp_path / "test_file", contents, valid_write_only_mode)
+
+
 def test_write__raises_when_mode_invalid(tmp_path: Path, invalid_write_only_mode: str):
     file = tmp_path / "test_file"
     with pytest.raises(ValueError):
@@ -109,6 +168,10 @@ def test_writebytes(tmp_path: Path, mode: str, contents: bytes):
     assert contents == actual_contents
 
 
+def test_writebytes__accepts_valid_mode(tmp_path: Path, valid_write_only_bin_mode: str):
+    sh.write(tmp_path / "test_file", b"", valid_write_only_bin_mode)
+
+
 def test_writebytes__raises_when_mode_invalid(tmp_path: Path, invalid_write_only_bin_mode: str):
     file = tmp_path / "test_file"
     with pytest.raises(ValueError):
@@ -129,6 +192,10 @@ def test_writetext(tmp_path: Path, mode: str, contents: str):
 
     actual_contents = file.read_text()
     assert contents == actual_contents
+
+
+def test_writetext__accepts_valid_mode(tmp_path: Path, valid_write_only_text_mode: str):
+    sh.write(tmp_path / "test_file", "", valid_write_only_text_mode)
 
 
 def test_writetext__raises_when_mode_invalid(tmp_path: Path, invalid_write_only_text_mode: str):
@@ -167,6 +234,11 @@ def test_writelines(tmp_path: Path, mode: str, items: t.List[t.AnyStr]):
 
     for i, line in enumerate(lines):
         assert items[i] == line.strip()
+
+
+def test_writelines__accepts_valid_mode(tmp_path: Path, valid_write_only_mode: str):
+    contents: t.Union[str, bytes] = b"" if "b" in valid_write_only_mode else ""
+    sh.writelines(tmp_path / "test_file", [contents], valid_write_only_mode)  # type: ignore
 
 
 @parametrize(
