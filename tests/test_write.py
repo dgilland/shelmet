@@ -1,5 +1,6 @@
 from pathlib import Path
 import typing as t
+from unittest import mock
 
 import pytest
 from pytest import param
@@ -119,6 +120,12 @@ def invalid_write_only_text_mode(request) -> str:
     return request.param
 
 
+@pytest.fixture()
+def mock_atomicfile():
+    with mock.patch("shelmet.filesystem.atomicfile") as _mock_atomicfile:
+        yield _mock_atomicfile
+
+
 @parametrize(
     "mode, contents",
     [
@@ -144,6 +151,35 @@ def test_write(tmp_path: Path, mode: str, contents: t.Union[str, bytes]):
 def test_write__accepts_valid_mode(tmp_path: Path, valid_write_only_mode: str):
     contents: t.Union[str, bytes] = b"" if "b" in valid_write_only_mode else ""
     sh.write(tmp_path / "test_file", contents, valid_write_only_mode)
+
+
+@parametrize(
+    "mode, contents, expected_mode, expected_overwrite",
+    [
+        param("w", "test", "w", True),
+        param("wb", b"test", "wb", True),
+        param("x", "test", "w", False),
+        param("xb", b"test", "wb", False),
+    ],
+)
+def test_write__can_atomically_create_file(
+    tmp_path: Path,
+    mock_atomicfile: mock.MagicMock,
+    mode: str,
+    contents: t.Union[str, bytes],
+    expected_mode: str,
+    expected_overwrite: bool,
+):
+    file = tmp_path / "test_file"
+    sh.write(file, contents, mode, atomic=True)
+
+    assert mock_atomicfile.called
+    assert mock_atomicfile.call_args == mock.call(file, expected_mode, overwrite=expected_overwrite)
+
+    args, kwargs = mock_atomicfile.call_args
+    with mock_atomicfile(*args, **kwargs) as fp:
+        assert fp.write.called
+        assert fp.write.call_args == mock.call(contents)
 
 
 def test_write__raises_when_mode_invalid(tmp_path: Path, invalid_write_only_mode: str):
@@ -274,6 +310,36 @@ def test_writelines__uses_custom_ending(
     actual_items = contents.rstrip(ending).split(ending)
     for i, actual_item in enumerate(actual_items):
         assert items[i] == actual_item
+
+
+@parametrize(
+    "mode, items, expected_mode, expected_overwrite",
+    [
+        param("w", ["test"], "w", True),
+        param("wb", [b"test"], "wb", True),
+        param("x", ["test"], "w", False),
+        param("xb", [b"test"], "wb", False),
+    ],
+)
+def test_writelines__can_atomically_create_file(
+    tmp_path: Path,
+    mock_atomicfile: mock.MagicMock,
+    mode: str,
+    items: t.Union[t.List[str], t.List[bytes]],
+    expected_mode: str,
+    expected_overwrite: bool,
+):
+    file = tmp_path / "test_file"
+    sh.writelines(file, items, mode, atomic=True)
+
+    assert mock_atomicfile.called
+    assert mock_atomicfile.call_args == mock.call(file, expected_mode, overwrite=expected_overwrite)
+
+    args, kwargs = mock_atomicfile.call_args
+    with mock_atomicfile(*args, **kwargs) as fp:
+        assert fp.writelines.called
+        lines = [line.strip() for line in fp.writelines.call_args[0][0]]
+        assert items == lines
 
 
 def test_writelines__raises_when_mode_invalid(tmp_path: Path, invalid_write_only_mode: str):

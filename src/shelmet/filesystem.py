@@ -3,6 +3,7 @@
 from contextlib import contextmanager
 from datetime import datetime, timezone
 import errno
+from functools import partial
 import io
 import os
 from pathlib import Path
@@ -796,25 +797,47 @@ def umask(mask: int = 0) -> t.Iterator[None]:
 
 @t.overload
 def write(
-    file: StrPath, contents: str, mode: WriteOnlyTextMode = "w", **open_kwargs: t.Any
+    file: StrPath,
+    contents: str,
+    mode: WriteOnlyTextMode = "w",
+    *,
+    atomic: bool = False,
+    **open_kwargs: t.Any,
 ) -> None:
     ...  # pragma: no cover
 
 
 @t.overload
-def write(file: StrPath, contents: bytes, mode: WriteOnlyBinMode, **open_kwargs: t.Any) -> None:
+def write(
+    file: StrPath,
+    contents: bytes,
+    mode: WriteOnlyBinMode,
+    *,
+    atomic: bool = False,
+    **open_kwargs: t.Any,
+) -> None:
     ...  # pragma: no cover
 
 
 @t.overload
 def write(
-    file: StrPath, contents: t.Union[str, bytes], mode: str = "w", **open_kwargs: t.Any
+    file: StrPath,
+    contents: t.Union[str, bytes],
+    mode: str = "w",
+    *,
+    atomic: bool = False,
+    **open_kwargs: t.Any,
 ) -> None:
     ...  # pragma: no cover
 
 
 def write(
-    file: StrPath, contents: t.Union[str, bytes], mode: str = "w", **open_kwargs: t.Any
+    file: StrPath,
+    contents: t.Union[str, bytes],
+    mode: str = "w",
+    *,
+    atomic: bool = False,
+    **open_kwargs: t.Any,
 ) -> None:
     """
     Write contents to file.
@@ -823,16 +846,26 @@ def write(
         file: File to write.
         contents: Contents to write.
         mode: File open mode.
+        atomic: Whether to write the file to a temporary location in the same directory before
+            moving it to the destination.
         **open_kwargs: Additional keyword arguments to pass to ``open``.
     """
     if mode not in WRITE_ONLY_MODES:
         raise ValueError(f"Invalid write-only mode: {mode}")
 
-    with open(file, mode, **open_kwargs) as fp:
+    opener = open
+    if atomic:
+        overwrite = "x" not in mode
+        mode = mode.replace("x", "w")
+        opener = partial(atomicfile, overwrite=overwrite)  # type: ignore
+
+    with opener(file, mode, **open_kwargs) as fp:
         fp.write(contents)
 
 
-def writetext(file: StrPath, contents: str, mode: str = "w", **open_kwargs: t.Any) -> None:
+def writetext(
+    file: StrPath, contents: str, mode: str = "w", *, atomic: bool = False, **open_kwargs: t.Any
+) -> None:
     """
     Write text contents to file.
 
@@ -840,14 +873,18 @@ def writetext(file: StrPath, contents: str, mode: str = "w", **open_kwargs: t.An
         file: File to write.
         contents: Contents to write.
         mode: File open mode.
+        atomic: Whether to write the file to a temporary location in the same directory before
+            moving it to the destination.
         **open_kwargs: Additional keyword arguments to pass to ``open``.
     """
     if mode not in WRITE_ONLY_TEXT_MODES:
         raise ValueError(f"Invalid write-only text-mode: {mode}")
-    write(file, contents, mode, **open_kwargs)
+    write(file, contents, mode, atomic=atomic, **open_kwargs)
 
 
-def writebytes(file: StrPath, contents: bytes, mode: str = "wb", **open_kwargs: t.Any) -> None:
+def writebytes(
+    file: StrPath, contents: bytes, mode: str = "wb", *, atomic: bool = False, **open_kwargs: t.Any
+) -> None:
     """
     Write binary contents to file.
 
@@ -855,19 +892,61 @@ def writebytes(file: StrPath, contents: bytes, mode: str = "wb", **open_kwargs: 
         file: File to write.
         contents: Contents to write.
         mode: File open mode.
+        atomic: Whether to write the file to a temporary location in the same directory before
+            moving it to the destination.
         **open_kwargs: Additional keyword arguments to pass to ``open``.
     """
     if mode not in WRITE_ONLY_BIN_MODES:
         raise ValueError(f"Invalid write-only binary-mode: {mode}")
-    write(file, contents, mode, **open_kwargs)
+    write(file, contents, mode, atomic=atomic, **open_kwargs)
+
+
+@t.overload
+def writelines(
+    file: StrPath,
+    items: t.Iterable[str],
+    mode: WriteOnlyTextMode = "w",
+    *,
+    ending: t.Optional[str] = None,
+    atomic: bool = False,
+    **open_kwargs: t.Any,
+) -> None:
+    ...  # pragma: no cover
+
+
+@t.overload
+def writelines(
+    file: StrPath,
+    items: t.Iterable[bytes],
+    mode: WriteOnlyBinMode,
+    *,
+    ending: t.Optional[bytes] = None,
+    atomic: bool = False,
+    **open_kwargs: t.Any,
+) -> None:
+    ...  # pragma: no cover
+
+
+@t.overload
+def writelines(
+    file: StrPath,
+    items: t.Union[t.Iterable[str], t.Iterable[bytes]],
+    mode: str = "w",
+    *,
+    ending: t.Optional[t.Union[str, bytes]] = None,
+    atomic: bool = False,
+    **open_kwargs: t.Any,
+) -> None:
+    ...  # pragma: no cover
 
 
 def writelines(
     file: StrPath,
-    items: t.Iterable[t.AnyStr],
+    items: t.Union[t.Iterable[str], t.Iterable[bytes]],
     mode: str = "w",
     *,
-    ending: t.Optional[t.AnyStr] = None,
+    ending: t.Optional[t.Union[str, bytes]] = None,
+    atomic: bool = False,
     **open_kwargs: t.Any,
 ) -> None:
     """
@@ -878,18 +957,26 @@ def writelines(
         items: Items to write.
         mode: File open mode.
         ending: Line ending to use. Defaults to newline.
+        atomic: Whether to write the file to a temporary location in the same directory before
+            moving it to the destination.
         **open_kwargs: Additional keyword arguments to pass to ``open``.
     """
     if mode not in WRITE_ONLY_MODES:
         raise ValueError(f"Invalid write-only mode: {mode}")
 
     if ending is None:
-        ending = t.cast(t.AnyStr, "\n")
+        ending = "\n"
         if "b" in mode:
-            ending = t.cast(t.AnyStr, b"\n")
+            ending = b"\n"
 
-    lines = (item + ending for item in items)
-    with open(file, mode, **open_kwargs) as fp:
+    opener = open
+    if atomic:
+        overwrite = "x" not in mode
+        mode = mode.replace("x", "w")
+        opener = partial(atomicfile, overwrite=overwrite)  # type: ignore
+
+    lines = (item + ending for item in items)  # type: ignore
+    with opener(file, mode, **open_kwargs) as fp:
         fp.writelines(lines)
 
 
