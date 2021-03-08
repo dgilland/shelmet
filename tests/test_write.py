@@ -122,7 +122,7 @@ def invalid_write_only_text_mode(request) -> str:
 
 @pytest.fixture()
 def mock_atomicfile():
-    with mock.patch("shelmet.filesystem.atomicfile") as _mock_atomicfile:
+    with mock.patch("shelmet.fileio.atomicfile") as _mock_atomicfile:
         yield _mock_atomicfile
 
 

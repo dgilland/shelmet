@@ -6,9 +6,20 @@ A shell power-up for working with the file system and running subprocess command
 
 from .__version__ import __version__
 from .command import Command, cmd, run
-from .filesystem import (
+from .fileio import (
     atomicdir,
     atomicfile,
+    read,
+    readbytes,
+    readchunks,
+    readlines,
+    readtext,
+    write,
+    writebytes,
+    writelines,
+    writetext,
+)
+from .filesystem import (
     backup,
     cp,
     dirsync,
@@ -17,19 +28,10 @@ from .filesystem import (
     getdirsize,
     mkdir,
     mv,
-    read,
-    readbytes,
-    readchunks,
-    readlines,
-    readtext,
     rm,
     rmdir,
     rmfile,
     touch,
     umask,
-    write,
-    writebytes,
-    writelines,
-    writetext,
 )
 from .path import cd, cwd, homedir, ls, lsdirs, lsfiles, reljoin, walk, walkdirs, walkfiles
