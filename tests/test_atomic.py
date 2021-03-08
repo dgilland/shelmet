@@ -6,7 +6,7 @@ from pytest import param
 
 import shelmet as sh
 
-from .utils import FakeDir, FakeFile, patch_os_fsync
+from .utils import Dir, File, patch_os_fsync
 
 
 parametrize = pytest.mark.parametrize
@@ -22,21 +22,21 @@ parametrize = pytest.mark.parametrize
     ],
 )
 def test_atomicdir(tmp_path: Path, opts: t.Dict[str, t.Any]):
-    dir = FakeDir(tmp_path / "test")
+    dir = Dir(tmp_path / "test")
     files = [
-        FakeFile("1.txt", text="1"),
-        FakeFile("2.txt", text="2"),
-        FakeFile("3.txt", text="3"),
-        FakeFile("a/a.txt", text="a"),
-        FakeFile("b/b.txt", text="b"),
-        FakeFile("c/c.txt", text="c"),
+        File("1.txt", text="1"),
+        File("2.txt", text="2"),
+        File("3.txt", text="3"),
+        File("a/a.txt", text="a"),
+        File("b/b.txt", text="b"),
+        File("c/c.txt", text="c"),
     ]
 
     with sh.atomicdir(dir.path, **opts) as tmp_path:
         assert tmp_path.exists()
         assert not dir.path.exists()
 
-        FakeDir(tmp_path).mkdir(files=files)
+        Dir(tmp_path).mkdir(files=files)
 
         assert not dir.path.exists()
 
@@ -69,7 +69,7 @@ def test_atomicdir__skips_sync_when_disabled(tmp_path: Path):
 
 
 def test_atomicdir__overwrites_when_enabled(tmp_path: Path):
-    dir = FakeDir(tmp_path / "test", files=[FakeFile("1"), FakeFile("2"), FakeFile("3")])
+    dir = Dir(tmp_path / "test", files=[File("1"), File("2"), File("3")])
     dir.mkdir()
 
     assert list(dir.path.iterdir())
@@ -81,7 +81,7 @@ def test_atomicdir__overwrites_when_enabled(tmp_path: Path):
 
 
 def test_atomicdir__does_not_overwrite_when_disabled(tmp_path: Path):
-    dir = FakeDir(tmp_path / "test", files=[FakeFile("1"), FakeFile("2"), FakeFile("3")])
+    dir = Dir(tmp_path / "test", files=[File("1"), File("2"), File("3")])
     dir.mkdir()
 
     with pytest.raises(FileExistsError):

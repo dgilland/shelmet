@@ -27,7 +27,7 @@ def is_subdict(subset: dict, superset: dict) -> bool:
     return subset == superset
 
 
-class FakeFile:
+class File:
     def __init__(self, path: t.Union[Path, str], size: int = 0, text: t.Optional[str] = None):
         self.path = Path(path)
         self.size = size
@@ -49,16 +49,16 @@ class FakeFile:
             self.path.touch()
 
 
-class FakeDir:
+class Dir:
     def __init__(
         self,
         path: t.Union[Path, str],
-        files: t.Optional[t.Sequence[t.Union[FakeFile, str]]] = None,
-        dirs: t.Optional[t.Sequence[t.Union["FakeDir", str]]] = None,
+        files: t.Optional[t.Sequence[t.Union[File, str]]] = None,
+        dirs: t.Optional[t.Sequence[t.Union["Dir", str]]] = None,
     ):
         self.path = Path(path)
-        self.files: t.List[FakeFile] = []
-        self.dirs: t.List[FakeDir] = []
+        self.files: t.List[File] = []
+        self.dirs: t.List[Dir] = []
 
         if dirs:
             self.dirs = [self.new_dir(dir) for dir in dirs]
@@ -73,8 +73,8 @@ class FakeDir:
 
     def mkdir(
         self,
-        files: t.Optional[t.Sequence[t.Union[FakeFile, str]]] = None,
-        dirs: t.Optional[t.Sequence[t.Union["FakeDir", str]]] = None,
+        files: t.Optional[t.Sequence[t.Union[File, str]]] = None,
+        dirs: t.Optional[t.Sequence[t.Union["Dir", str]]] = None,
     ) -> None:
         self.path.mkdir(parents=True, exist_ok=True)
 
@@ -90,35 +90,33 @@ class FakeDir:
         for file in self.files:
             file.write()
 
-    def add(self, item: t.Union[FakeFile, "FakeDir"]) -> t.Union[FakeFile, "FakeDir"]:
-        if isinstance(item, FakeFile):
+    def add(self, item: t.Union[File, "Dir"]) -> t.Union[File, "Dir"]:
+        if isinstance(item, File):
             return self.add_file(item)
         else:
             return self.add_dir(item)
 
-    def add_all(
-        self, items: t.Sequence[t.Union[FakeFile, "FakeDir"]]
-    ) -> t.List[t.Union[FakeFile, "FakeDir"]]:
+    def add_all(self, items: t.Sequence[t.Union[File, "Dir"]]) -> t.List[t.Union[File, "Dir"]]:
         return [self.add(item) for item in items]
 
     def add_file(
-        self, file: t.Union[FakeFile, str], size: int = 0, text: t.Optional[str] = None
-    ) -> FakeFile:
+        self, file: t.Union[File, str], size: int = 0, text: t.Optional[str] = None
+    ) -> File:
         fake_file = self.new_file(file, size=size, text=text)
         fake_file.write()
         self.files.append(fake_file)
         return fake_file
 
-    def add_dir(self, dir: t.Union["FakeDir", str]) -> "FakeDir":
+    def add_dir(self, dir: t.Union["Dir", str]) -> "Dir":
         fake_dir = self.new_dir(dir)
         fake_dir.mkdir()
         return fake_dir
 
     def new_file(
-        self, file: t.Union[FakeFile, str], size: int = 0, text: t.Optional[str] = None
-    ) -> FakeFile:
+        self, file: t.Union[File, str], size: int = 0, text: t.Optional[str] = None
+    ) -> File:
         kwargs: t.Dict[str, t.Any] = {}
-        if isinstance(file, FakeFile):
+        if isinstance(file, File):
             kwargs["path"] = file.path
             kwargs["size"] = file.size
             kwargs["text"] = file.text
@@ -127,11 +125,11 @@ class FakeDir:
             kwargs["size"] = size
             kwargs["text"] = text
         kwargs["path"] = self.path / kwargs["path"]
-        return FakeFile(**kwargs)
+        return File(**kwargs)
 
-    def new_dir(self, dir: t.Union["FakeDir", str]) -> "FakeDir":
+    def new_dir(self, dir: t.Union["Dir", str]) -> "Dir":
         kwargs: t.Dict[str, t.Any] = {}
-        if isinstance(dir, FakeDir):
+        if isinstance(dir, Dir):
             kwargs["path"] = dir.path
             kwargs["files"] = dir.files
             kwargs["dirs"] = dir.dirs
@@ -144,7 +142,7 @@ class FakeDir:
         else:
             kwargs["path"] = dir
         kwargs["path"] = self.path / kwargs["path"]
-        return FakeDir(**kwargs)
+        return Dir(**kwargs)
 
 
 @contextmanager

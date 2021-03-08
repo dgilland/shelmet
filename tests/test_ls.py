@@ -10,7 +10,7 @@ from pytest import param
 import shelmet as sh
 from shelmet.types import LsFilter
 
-from .utils import FakeDir, FakeFile
+from .utils import Dir, File
 
 
 parametrize = pytest.mark.parametrize
@@ -21,24 +21,24 @@ parametrize = pytest.mark.parametrize
     [
         param(
             [
-                FakeDir("x/xx", files=[FakeFile("x1.txt")]),
-                FakeDir("y/yy", files=[FakeFile("y1.txt"), FakeFile("y2.txt")]),
-                FakeDir("z/zz"),
-                FakeFile("a.txt"),
-                FakeFile("b.txt"),
-                FakeFile("c.txt"),
+                Dir("x/xx", files=[File("x1.txt")]),
+                Dir("y/yy", files=[File("y1.txt"), File("y2.txt")]),
+                Dir("z/zz"),
+                File("a.txt"),
+                File("b.txt"),
+                File("c.txt"),
             ],
             {},
             {Path("x"), Path("y"), Path("z"), Path("a.txt"), Path("b.txt"), Path("c.txt")},
         ),
         param(
             [
-                FakeDir("x/xx", files=[FakeFile("x1.txt")]),
-                FakeDir("y/yy", files=[FakeFile("y1.txt"), FakeFile("y2.txt")]),
-                FakeDir("z/zz"),
-                FakeFile("a.txt"),
-                FakeFile("b.txt"),
-                FakeFile("c.txt"),
+                Dir("x/xx", files=[File("x1.txt")]),
+                Dir("y/yy", files=[File("y1.txt"), File("y2.txt")]),
+                Dir("z/zz"),
+                File("a.txt"),
+                File("b.txt"),
+                File("c.txt"),
             ],
             {"recursive": True},
             {
@@ -58,12 +58,12 @@ parametrize = pytest.mark.parametrize
         ),
         param(
             [
-                FakeDir("x/xx", files=[FakeFile("x1.txt")]),
-                FakeDir("y/yy", files=[FakeFile("y1.txt"), FakeFile("y2.txt")]),
-                FakeDir("z/zz"),
-                FakeFile("a.txt"),
-                FakeFile("b.txt"),
-                FakeFile("c.txt"),
+                Dir("x/xx", files=[File("x1.txt")]),
+                Dir("y/yy", files=[File("y1.txt"), File("y2.txt")]),
+                Dir("z/zz"),
+                File("a.txt"),
+                File("b.txt"),
+                File("c.txt"),
             ],
             {"recursive": True, "only_files": True},
             {
@@ -77,48 +77,48 @@ parametrize = pytest.mark.parametrize
         ),
         param(
             [
-                FakeDir("x/xx", files=[FakeFile("x1.txt")]),
-                FakeDir("y/yy", files=[FakeFile("y1.txt"), FakeFile("y2.txt")]),
-                FakeDir("z/zz"),
-                FakeFile("a.txt"),
-                FakeFile("b.txt"),
-                FakeFile("c.txt"),
+                Dir("x/xx", files=[File("x1.txt")]),
+                Dir("y/yy", files=[File("y1.txt"), File("y2.txt")]),
+                Dir("z/zz"),
+                File("a.txt"),
+                File("b.txt"),
+                File("c.txt"),
             ],
             {"recursive": True, "only_dirs": True},
             {Path("x"), Path("x/xx"), Path("y"), Path("y/yy"), Path("z"), Path("z/zz")},
         ),
         param(
             [
-                FakeDir("x/xx", files=[FakeFile("x1.txt")]),
-                FakeDir("y/yy", files=[FakeFile("y1.txt"), FakeFile("y2.txt")]),
-                FakeDir("z/zz"),
-                FakeFile("a.txt"),
-                FakeFile("b.txt"),
-                FakeFile("c.txt"),
+                Dir("x/xx", files=[File("x1.txt")]),
+                Dir("y/yy", files=[File("y1.txt"), File("y2.txt")]),
+                Dir("z/zz"),
+                File("a.txt"),
+                File("b.txt"),
+                File("c.txt"),
             ],
             {"include": "*.txt"},
             {Path("a.txt"), Path("b.txt"), Path("c.txt")},
         ),
         param(
             [
-                FakeDir("x/xx", files=[FakeFile("x1.txt")]),
-                FakeDir("y/yy", files=[FakeFile("y1.txt"), FakeFile("y2.txt")]),
-                FakeDir("z/zz"),
-                FakeFile("a.txt"),
-                FakeFile("b.txt"),
-                FakeFile("c.txt"),
+                Dir("x/xx", files=[File("x1.txt")]),
+                Dir("y/yy", files=[File("y1.txt"), File("y2.txt")]),
+                Dir("z/zz"),
+                File("a.txt"),
+                File("b.txt"),
+                File("c.txt"),
             ],
             {"exclude": "*.txt"},
             {Path("x"), Path("y"), Path("z")},
         ),
         param(
             [
-                FakeDir("x/xx", files=[FakeFile("x1.txt")]),
-                FakeDir("y/yy", files=[FakeFile("y1.txt"), FakeFile("y2.txt")]),
-                FakeDir("z/zz"),
-                FakeFile("a.txt"),
-                FakeFile("b.txt"),
-                FakeFile("c.txt"),
+                Dir("x/xx", files=[File("x1.txt")]),
+                Dir("y/yy", files=[File("y1.txt"), File("y2.txt")]),
+                Dir("z/zz"),
+                File("a.txt"),
+                File("b.txt"),
+                File("c.txt"),
             ],
             {"include": "*.txt", "recursive": True},
             {
@@ -132,12 +132,12 @@ parametrize = pytest.mark.parametrize
         ),
         param(
             [
-                FakeDir("x/xx", files=[FakeFile("x1.txt")]),
-                FakeDir("y/yy", files=[FakeFile("y1.txt"), FakeFile("y2.txt")]),
-                FakeDir("z/zz"),
-                FakeFile("a.txt"),
-                FakeFile("b.txt"),
-                FakeFile("c.txt"),
+                Dir("x/xx", files=[File("x1.txt")]),
+                Dir("y/yy", files=[File("y1.txt"), File("y2.txt")]),
+                Dir("z/zz"),
+                File("a.txt"),
+                File("b.txt"),
+                File("c.txt"),
             ],
             {"exclude": "*.txt", "recursive": True},
             {
@@ -151,12 +151,12 @@ parametrize = pytest.mark.parametrize
         ),
         param(
             [
-                FakeDir("x/xx", files=[FakeFile("x1.txt")]),
-                FakeDir("y/yy", files=[FakeFile("y1.txt"), FakeFile("y2.txt")]),
-                FakeDir("z/zz"),
-                FakeFile("a.txt"),
-                FakeFile("b.txt"),
-                FakeFile("c.txt"),
+                Dir("x/xx", files=[File("x1.txt")]),
+                Dir("y/yy", files=[File("y1.txt"), File("y2.txt")]),
+                Dir("z/zz"),
+                File("a.txt"),
+                File("b.txt"),
+                File("c.txt"),
             ],
             {"include": ["*.txt"], "only_dirs": True, "recursive": True},
             set(),
@@ -165,11 +165,11 @@ parametrize = pytest.mark.parametrize
 )
 def test_ls(
     tmp_path: Path,
-    items: t.List[t.Union[FakeDir, FakeFile]],
+    items: t.List[t.Union[Dir, File]],
     kwargs: dict,
     expected_contents: t.Set[Path],
 ):
-    src = FakeDir(tmp_path)
+    src = Dir(tmp_path)
     src.add_all(items)
     src.mkdir()
     with sh.cd(tmp_path):
@@ -194,13 +194,13 @@ def test_ls(
     ],
 )
 def test_ls__includes_on_multiple_types(tmp_path: Path, include: LsFilter):
-    items: t.List[t.Union[FakeDir, FakeFile]] = [
-        FakeDir("a_dir_include"),
-        FakeDir("b_dir"),
-        FakeDir("c_dir_include"),
-        FakeFile("d_file_include"),
-        FakeFile("e_file"),
-        FakeFile("f_file_include"),
+    items: t.List[t.Union[Dir, File]] = [
+        Dir("a_dir_include"),
+        Dir("b_dir"),
+        Dir("c_dir_include"),
+        File("d_file_include"),
+        File("e_file"),
+        File("f_file_include"),
     ]
     expected_contents = {
         Path("a_dir_include"),
@@ -208,7 +208,7 @@ def test_ls__includes_on_multiple_types(tmp_path: Path, include: LsFilter):
         Path("d_file_include"),
         Path("f_file_include"),
     }
-    src = FakeDir(tmp_path)
+    src = Dir(tmp_path)
     src.add_all(items)
     src.mkdir()
     with sh.cd(tmp_path):
@@ -221,24 +221,24 @@ def test_ls__includes_on_multiple_types(tmp_path: Path, include: LsFilter):
     [
         param(
             [
-                FakeDir("a_dir_include"),
-                FakeDir("b_dir"),
-                FakeDir("c_dir_include"),
-                FakeFile("d_file_include"),
-                FakeFile("e_file"),
-                FakeFile("f_file_include"),
+                Dir("a_dir_include"),
+                Dir("b_dir"),
+                Dir("c_dir_include"),
+                File("d_file_include"),
+                File("e_file"),
+                File("f_file_include"),
             ],
             {"include": "*_include", "only_files": True},
             {Path("d_file_include"), Path("f_file_include")},
         ),
         param(
             [
-                FakeDir("a_dir_include"),
-                FakeDir("b_dir"),
-                FakeDir("c_dir_include"),
-                FakeFile("d_file_include"),
-                FakeFile("e_file"),
-                FakeFile("f_file_include"),
+                Dir("a_dir_include"),
+                Dir("b_dir"),
+                Dir("c_dir_include"),
+                File("d_file_include"),
+                File("e_file"),
+                File("f_file_include"),
             ],
             {"include": "*_include", "only_dirs": True},
             {Path("a_dir_include"), Path("c_dir_include")},
@@ -247,11 +247,11 @@ def test_ls__includes_on_multiple_types(tmp_path: Path, include: LsFilter):
 )
 def test_ls__uses_only_files_and_only_dirs_in_include(
     tmp_path: Path,
-    items: t.List[t.Union[FakeDir, FakeFile]],
+    items: t.List[t.Union[Dir, File]],
     kwargs: dict,
     expected_contents: t.Set[Path],
 ):
-    src = FakeDir(tmp_path)
+    src = Dir(tmp_path)
     src.add_all(items)
     src.mkdir()
     with sh.cd(tmp_path):
@@ -276,16 +276,16 @@ def test_ls__uses_only_files_and_only_dirs_in_include(
     ],
 )
 def test_ls__excludes_on_multiple_types(tmp_path: Path, exclude: LsFilter):
-    items: t.List[t.Union[FakeDir, FakeFile]] = [
-        FakeDir("a_dir_exclude"),
-        FakeDir("b_dir"),
-        FakeDir("c_dir_exclude"),
-        FakeFile("d_file_exclude"),
-        FakeFile("e_file"),
-        FakeFile("f_file_exclude"),
+    items: t.List[t.Union[Dir, File]] = [
+        Dir("a_dir_exclude"),
+        Dir("b_dir"),
+        Dir("c_dir_exclude"),
+        File("d_file_exclude"),
+        File("e_file"),
+        File("f_file_exclude"),
     ]
     expected_contents = {Path("b_dir"), Path("e_file")}
-    src = FakeDir(tmp_path)
+    src = Dir(tmp_path)
     src.add_all(items)
     src.mkdir()
     with sh.cd(tmp_path):
@@ -294,16 +294,16 @@ def test_ls__excludes_on_multiple_types(tmp_path: Path, exclude: LsFilter):
 
 
 def test_ls__does_not_recurse_into_excluded_dirs(tmp_path: Path):
-    items: t.List[t.Union[FakeDir, FakeFile]] = [
-        FakeDir("a_dir_excluded", files=[FakeFile("a1.txt")]),
-        FakeDir("b_dir", files=[FakeFile("b2.txt")]),
+    items: t.List[t.Union[Dir, File]] = [
+        Dir("a_dir_excluded", files=[File("a1.txt")]),
+        Dir("b_dir", files=[File("b2.txt")]),
     ]
     expected_contents = {
         Path("b_dir"),
         Path("b_dir/b2.txt"),
     }
     exclude = "*_excluded"
-    src = FakeDir(tmp_path)
+    src = Dir(tmp_path)
     src.add_all(items)
     src.mkdir()
     with sh.cd(tmp_path):

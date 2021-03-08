@@ -6,7 +6,7 @@ from pytest import param
 
 import shelmet as sh
 
-from .utils import FakeDir, FakeFile
+from .utils import Dir, File
 
 
 parametrize = pytest.mark.parametrize
@@ -15,29 +15,27 @@ parametrize = pytest.mark.parametrize
 @parametrize(
     "sources",
     [
-        param([FakeFile("1.txt")], id="one_file"),
-        param([FakeFile("1.txt"), FakeFile("2.txt"), FakeFile("3.txt")], id="many_files"),
-        param([FakeDir("1")], id="one_dir_with_no_files"),
+        param([File("1.txt")], id="one_file"),
+        param([File("1.txt"), File("2.txt"), File("3.txt")], id="many_files"),
+        param([Dir("1")], id="one_dir_with_no_files"),
+        param([Dir("1", files=[File("1.txt"), File("2.txt")])], id="one_dir_with_files"),
         param(
-            [FakeDir("1", files=[FakeFile("1.txt"), FakeFile("2.txt")])], id="one_dir_with_files"
-        ),
-        param(
-            [FakeDir("1"), FakeDir("2"), FakeDir("3/4"), FakeDir("5/6/7")],
+            [Dir("1"), Dir("2"), Dir("3/4"), Dir("5/6/7")],
             id="many_dirs_with_no_files",
         ),
         param(
             [
-                FakeDir("1", files=[FakeFile("1.txt")]),
-                FakeDir("2", files=[FakeFile("2.txt")], dirs=[FakeDir("2.1")]),
-                FakeDir("3/4", files=[FakeFile("3.txt"), FakeFile("4.txt")]),
-                FakeDir("5/6/7"),
+                Dir("1", files=[File("1.txt")]),
+                Dir("2", files=[File("2.txt")], dirs=[Dir("2.1")]),
+                Dir("3/4", files=[File("3.txt"), File("4.txt")]),
+                Dir("5/6/7"),
             ],
             id="many_dirs_with_files",
         ),
     ],
 )
-def test_rm(tmp_path: Path, sources: t.Sequence[FakeFile]):
-    base_dir = FakeDir(tmp_path)
+def test_rm(tmp_path: Path, sources: t.Sequence[File]):
+    base_dir = Dir(tmp_path)
     srcs = [base_dir.add(source) for source in sources]
 
     for src in srcs:
@@ -52,27 +50,25 @@ def test_rm(tmp_path: Path, sources: t.Sequence[FakeFile]):
 @parametrize(
     "sources",
     [
-        param([FakeDir("1")], id="one_dir_with_no_files"),
+        param([Dir("1")], id="one_dir_with_no_files"),
+        param([Dir("1", files=[File("1.txt"), File("2.txt")])], id="one_dir_with_files"),
         param(
-            [FakeDir("1", files=[FakeFile("1.txt"), FakeFile("2.txt")])], id="one_dir_with_files"
-        ),
-        param(
-            [FakeDir("1"), FakeDir("2"), FakeDir("3/4"), FakeDir("5/6/7")],
+            [Dir("1"), Dir("2"), Dir("3/4"), Dir("5/6/7")],
             id="many_dirs_with_no_files",
         ),
         param(
             [
-                FakeDir("1", files=[FakeFile("1.txt")]),
-                FakeDir("2", files=[FakeFile("2.txt")], dirs=[FakeDir("2.1")]),
-                FakeDir("3/4", files=[FakeFile("3.txt"), FakeFile("4.txt")]),
-                FakeDir("5/6/7"),
+                Dir("1", files=[File("1.txt")]),
+                Dir("2", files=[File("2.txt")], dirs=[Dir("2.1")]),
+                Dir("3/4", files=[File("3.txt"), File("4.txt")]),
+                Dir("5/6/7"),
             ],
             id="many_dirs_with_files",
         ),
     ],
 )
-def test_rmdir(tmp_path: Path, sources: t.Sequence[FakeFile]):
-    base_dir = FakeDir(tmp_path)
+def test_rmdir(tmp_path: Path, sources: t.Sequence[File]):
+    base_dir = Dir(tmp_path)
     srcs = [base_dir.add(source) for source in sources]
 
     for src in srcs:
@@ -95,12 +91,12 @@ def test_rmdir__raises_on_file(tmp_path: Path):
 @parametrize(
     "sources",
     [
-        param([FakeFile("1.txt")], id="one_file"),
-        param([FakeFile("1.txt"), FakeFile("2.txt"), FakeFile("3.txt")], id="many_files"),
+        param([File("1.txt")], id="one_file"),
+        param([File("1.txt"), File("2.txt"), File("3.txt")], id="many_files"),
     ],
 )
-def test_rmfile(tmp_path: Path, sources: t.Sequence[FakeFile]):
-    base_dir = FakeDir(tmp_path)
+def test_rmfile(tmp_path: Path, sources: t.Sequence[File]):
+    base_dir = Dir(tmp_path)
     srcs = [base_dir.add(source) for source in sources]
 
     for src in srcs:

@@ -9,7 +9,7 @@ from pytest import param
 
 import shelmet as sh
 
-from .utils import FakeDir, FakeFile
+from .utils import Dir, File
 
 
 parametrize = pytest.mark.parametrize
@@ -19,34 +19,32 @@ parametrize = pytest.mark.parametrize
     "src, dst, expected",
     [
         param(
-            FakeFile("src.txt", text="src"),
-            FakeFile("dst.txt"),
-            FakeFile("dst.txt", text="src"),
+            File("src.txt", text="src"),
+            File("dst.txt"),
+            File("dst.txt", text="src"),
             id="to_new_file",
         ),
         param(
-            FakeFile("src.txt", text="src"),
-            FakeDir("dst"),
-            FakeFile("dst/src.txt", text="src"),
+            File("src.txt", text="src"),
+            Dir("dst"),
+            File("dst/src.txt", text="src"),
             id="to_new_file_under_destination",
         ),
         param(
-            FakeFile("src.txt", text="src"),
-            FakeFile("dst.txt", text="dst"),
-            FakeFile("dst.txt", text="src"),
+            File("src.txt", text="src"),
+            File("dst.txt", text="dst"),
+            File("dst.txt", text="src"),
             id="to_overwite_existing_file",
         ),
     ],
 )
-def test_mv__moves_file(
-    tmp_path: Path, src: FakeFile, dst: t.Union[FakeFile, FakeDir], expected: FakeFile
-):
-    base_dir = FakeDir(tmp_path)
+def test_mv__moves_file(tmp_path: Path, src: File, dst: t.Union[File, Dir], expected: File):
+    base_dir = Dir(tmp_path)
     src_file = base_dir.add_file(src)
     expected_file = base_dir.new_file(expected)
 
-    dst_target: t.Union[FakeFile, FakeDir]
-    if isinstance(dst, FakeFile):
+    dst_target: t.Union[File, Dir]
+    if isinstance(dst, File):
         dst_target = base_dir.new_file(dst)
         if dst_target.text:
             dst_target.write()
@@ -63,36 +61,36 @@ def test_mv__moves_file(
 @parametrize(
     "src_files, dst, expected",
     [
-        param([FakeFile("1.txt", text="1")], "dst", "dst", id="to_new_dir"),
+        param([File("1.txt", text="1")], "dst", "dst", id="to_new_dir"),
         param(
-            [FakeFile("1.txt", text="1")],
-            FakeDir("dst", files=[FakeFile("2.txt")]),
+            [File("1.txt", text="1")],
+            Dir("dst", files=[File("2.txt")]),
             "dst/src",
             id="to_new_dir_under_destination",
         ),
         param(
-            [FakeFile("1.txt", text="1")],
-            FakeDir("dst", dirs=[FakeDir("src")]),
+            [File("1.txt", text="1")],
+            Dir("dst", dirs=[Dir("src")]),
             "dst/src",
             id="to_new_dir_overwriting_existing_dir_under_destination",
         ),
     ],
 )
 def test_mv__moves_dir(
-    tmp_path: Path, src_files: t.List[FakeFile], dst: t.Union[FakeDir, str], expected: str
+    tmp_path: Path, src_files: t.List[File], dst: t.Union[Dir, str], expected: str
 ):
-    src_dir = FakeDir(tmp_path / "src", files=src_files)
+    src_dir = Dir(tmp_path / "src", files=src_files)
     src_dir.mkdir()
 
-    if isinstance(dst, FakeDir):
-        dst_dir = FakeDir(tmp_path / dst.path, files=dst.files)
+    if isinstance(dst, Dir):
+        dst_dir = Dir(tmp_path / dst.path, files=dst.files)
         dst_dir.mkdir()
     else:
-        dst_dir = FakeDir(tmp_path / dst)
+        dst_dir = Dir(tmp_path / dst)
 
     sh.mv(src_dir.path, dst_dir.path)
 
-    expected_dst_dir = FakeDir(tmp_path / expected)
+    expected_dst_dir = Dir(tmp_path / expected)
     assert not src_dir.path.exists()
     assert expected_dst_dir.path.exists()
 
@@ -102,7 +100,7 @@ def test_mv__moves_dir(
 
 
 def test_mv__allows_same_file_as_destination(tmp_path: Path):
-    src_file = FakeFile(tmp_path / "src.txt", text="src")
+    src_file = File(tmp_path / "src.txt", text="src")
     src_file.write()
     sh.mv(src_file.path, src_file.path)
     assert src_file.path.exists()
@@ -110,10 +108,10 @@ def test_mv__allows_same_file_as_destination(tmp_path: Path):
 
 
 def test_mv__works_across_file_systems(tmp_path: Path):
-    src_file = FakeFile(tmp_path / "src.txt", text="src")
+    src_file = File(tmp_path / "src.txt", text="src")
     src_file.write()
 
-    dst_file = FakeFile(tmp_path / "dst.txt")
+    dst_file = File(tmp_path / "dst.txt")
     _os_rename = os.rename
 
     def mock_os_rename(src, dst):
@@ -130,9 +128,9 @@ def test_mv__works_across_file_systems(tmp_path: Path):
 
 
 def test_mv__raises_when_source_dir_exists_in_destination_and_is_not_empty(tmp_path: Path):
-    src_dir = FakeDir(tmp_path / "src", files=[FakeFile("src.txt", text="src")])
+    src_dir = Dir(tmp_path / "src", files=[File("src.txt", text="src")])
     src_dir.mkdir()
-    dst_dir = FakeDir(tmp_path / "dst", files=[FakeFile("src/other.txt", text="other")])
+    dst_dir = Dir(tmp_path / "dst", files=[File("src/other.txt", text="other")])
     dst_dir.mkdir()
 
     with pytest.raises(OSError):

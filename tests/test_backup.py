@@ -10,7 +10,7 @@ from pytest import param
 
 import shelmet as sh
 
-from .utils import FakeDir, FakeFile
+from .utils import Dir, File
 
 
 parametrize = pytest.mark.parametrize
@@ -65,13 +65,13 @@ def test_backup__backs_up_file(src_file: Path):
 
 
 def test_backup__backs_up_directory(tmp_path: Path):
-    src_dir = FakeDir(
+    src_dir = Dir(
         tmp_path / "src",
         files=[
-            FakeFile("1.txt", text="1"),
-            FakeFile("2.txt", text="2"),
-            FakeFile("a/a1.txt", text="a1"),
-            FakeFile("a/a2.txt", text="a2"),
+            File("1.txt", text="1"),
+            File("2.txt", text="2"),
+            File("a/a1.txt", text="a1"),
+            File("a/a2.txt", text="a2"),
         ],
     )
     src_dir.mkdir()
