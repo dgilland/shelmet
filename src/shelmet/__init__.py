@@ -4,7 +4,8 @@ The shelmet package.
 A shell power-up for working with the file system and running subprocess commands.
 """
 
-from .__version__ import __version__
+__version__ = "0.5.0"
+
 from .command import Command, cmd, run
 from .fileio import (
     atomicdir,
