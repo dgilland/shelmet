@@ -22,6 +22,7 @@ from .fileio import (
 )
 from .filesystem import (
     backup,
+    chmod,
     cp,
     dirsync,
     environ,

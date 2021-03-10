@@ -3,10 +3,13 @@
 from contextlib import contextmanager
 from datetime import datetime, timezone
 import errno
+import itertools
 import os
 from pathlib import Path
 import random
+import re
 import shutil
+import stat
 import string
 import typing as t
 
@@ -17,6 +20,30 @@ try:
     import fcntl
 except ImportError:  # pragma: no cover
     fcntl = None  # type: ignore
+
+
+CHMOD_SYMBOLIC_PATTERN = re.compile(r"^(?P<who>[ugoa]*)(?P<op>[+\-=])(?P<perm>[ugo]|[rwxst]*)$")
+CHMOD_SYMBOLIC_TABLE: t.Dict[str, int] = {
+    "ur": stat.S_IRUSR,
+    "uw": stat.S_IWUSR,
+    "ux": stat.S_IXUSR,
+    "us": stat.S_ISUID,
+    "gr": stat.S_IRGRP,
+    "gw": stat.S_IWGRP,
+    "gx": stat.S_IXGRP,
+    "gs": stat.S_ISGID,
+    "or": stat.S_IROTH,
+    "ow": stat.S_IWOTH,
+    "ox": stat.S_IXOTH,
+    "ot": stat.S_ISVTX,
+    "ar": stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH,
+    "aw": stat.S_IWUSR | stat.S_IWGRP | stat.S_IWOTH,
+    "ax": stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH,
+    "at": stat.S_ISVTX,
+    "u": stat.S_IRWXU | stat.S_ISUID,
+    "g": stat.S_IRWXG | stat.S_ISGID,
+    "o": stat.S_IRWXO | stat.S_ISVTX,
+}
 
 
 def backup(
@@ -146,6 +173,160 @@ def _backup_namer(
     dst = dir / name
 
     return dst
+
+
+def chmod(
+    path: t.Union[StrPath, int], mode: t.Union[str, int], *, follow_symlinks: bool = True
+) -> None:
+    """
+    Change file or directory permissions using numeric or symbolic modes.
+
+    The mode can either be an integer, an octal number (e.g. ``0o600``), an octal string
+    (e.g. ``"600"``), or a symbolic permissions string (e.g. ``"u+rw,g=r,o-rwx"``).
+
+    The symbolic permissions string format is similar to what is accepted by the UNIX command
+    ``chmod``:
+
+    - Symbolic format: ``[ugoa...][-+=][rwxstugo...][,...]``
+    - ``[ugoa...]``: Optional zero or more characters that set the user class parameter.
+
+      - ``u``: user
+      - ``g``: group
+      - ``o``: other
+      - ``a``: all
+      - Defaults to ``a`` when none given
+
+    - ``[-+=]``: Required operation that modifies the permissions.
+
+      - ``-``: removes the given permissions
+      - ``+``: adds the given permissions
+      - ``=``: sets the given permissions to what was specified
+      - If ``=`` is used without permissions, then the user class will have all of its permissions
+        removed
+
+    - ``[rwxstugo...]``: Permissions to modify for the given user classes.
+
+      - ``r``: Read
+      - ``w``: Write
+      - ``x``: Execute
+      - ``s``: User or Group ID bit
+      - ``t``: Sticky bit
+      - ``u``: User permission bits of the original path mode
+      - ``g``: Group permission bits of the original path mode
+      - ``o``: Other permission bits of the original path mode
+
+    - Multiple permission clauses are separated with ``,``.
+
+    Examples::
+
+        # Set permissions to 600 using octal number.
+        chmod(path, 0o600)
+
+        # Set permissions to 600 using octal string.
+        chmod(path, "600")
+
+        # Set user to read-write, group to read, and remove read-write-execute from other
+        chmod(path, "u=rw,g=r,o-rwx")
+
+        # Set user, group, and other to read-write
+        chmod(path, "a=rw")
+
+        # Add execute permission for user, group, and other
+        chmod(path, "+x")
+
+        # Add user id bit, group id bit, and set sticky bit
+        chmod(path, "u+s,g+s,+t")
+
+        # Set group permission to same as user
+        chmod(path, "g=u")
+
+    Args:
+        path: File, directory, or file-descriptor.
+        mode: Permission mode to set.
+        follow_symlinks: Whether to follow symlinks.
+    """
+    if isinstance(mode, str):
+        # Attempt to convert mode from octal string to integer to support values like "640".
+        try:
+            mode = int(mode, 8)
+        except (ValueError, TypeError):
+            pass
+
+    if isinstance(mode, str):
+        # Process mode as symbolic permissions like "ug=rw,o=r".
+        if isinstance(path, int):
+            path_stat = os.stat(path)
+        else:
+            path_stat = Path(path).stat()
+        mode = _get_symbolic_mode(path_stat.st_mode, mode)
+
+    os.chmod(path, mode, follow_symlinks=follow_symlinks)
+
+
+def _get_symbolic_mode(base_mode: int, symbolic_mode: str) -> int:
+    mode = base_mode
+    items = symbolic_mode.split(",")
+
+    for item in items:
+        match = CHMOD_SYMBOLIC_PATTERN.match(item)
+
+        if not match:
+            raise ValueError(f"chmod: Unsupported symbolic mode: {symbolic_mode}")
+
+        who = match.group("who")
+        op = match.group("op")
+        perm = match.group("perm")
+
+        if not who:
+            who = "a"
+
+        mask = 0
+        for who_char, perm_char in itertools.product(who, perm):
+            if perm_char in "ugo":
+                # Permission character is a who-class that we should inherit permissions from.
+                submask = _get_inherited_symbolic_mode(mode, to_who=who_char, from_who=perm_char)
+            else:
+                symbol = who_char + perm_char
+                if symbol not in CHMOD_SYMBOLIC_TABLE:
+                    raise ValueError(f"chmod: Unsupported symbolic mode: {symbolic_mode}")
+                submask = CHMOD_SYMBOLIC_TABLE[symbol]
+            mask |= submask
+
+        if op == "=":
+            # Since we're setting permissions to be equal to the given mode, clear the existing
+            # mode for each "who" so that its permissions will be set to just what was given.
+            mode = _clear_symbolic_mode(mode, who)
+
+        if op == "-":
+            mode &= ~mask
+        else:
+            # Handles both "=" and "+" operators.
+            mode |= mask
+
+    return mode
+
+
+def _get_inherited_symbolic_mode(base_mode: int, to_who: str, from_who: str) -> int:
+    mode = 0
+    for perm_char in "rwxst":
+        from_symbol = from_who + perm_char
+        to_symbol = to_who + perm_char
+        if (
+            from_symbol in CHMOD_SYMBOLIC_TABLE
+            and to_symbol in CHMOD_SYMBOLIC_TABLE
+            and base_mode & CHMOD_SYMBOLIC_TABLE[from_symbol]
+        ):
+            mode |= CHMOD_SYMBOLIC_TABLE[to_symbol]
+    return mode
+
+
+def _clear_symbolic_mode(mode: int, who: str) -> int:
+    for who_char, perm_char in itertools.product(who, "rwxst"):
+        symbol = who_char + perm_char
+        if symbol not in CHMOD_SYMBOLIC_TABLE:
+            continue
+        mode &= ~CHMOD_SYMBOLIC_TABLE[who_char + perm_char]
+    return mode
 
 
 def cp(src: StrPath, dst: StrPath, *, follow_symlinks: bool = True) -> None:
