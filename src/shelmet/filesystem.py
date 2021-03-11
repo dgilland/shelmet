@@ -283,6 +283,7 @@ def chmod(
 
 
 def _get_symbolic_mode(base_mode: int, symbolic_mode: str) -> int:
+    """Return integer mode from a symbolic mode."""
     mode = base_mode
     items = symbolic_mode.split(",")
 
@@ -326,6 +327,7 @@ def _get_symbolic_mode(base_mode: int, symbolic_mode: str) -> int:
 
 
 def _get_inherited_symbolic_mode(base_mode: int, to_who: str, from_who: str) -> int:
+    """Return integer mode by inheriting the permissions from another symbolic user class."""
     mode = 0
     for perm_char in "rwxst":
         from_symbol = from_who + perm_char
@@ -340,6 +342,7 @@ def _get_inherited_symbolic_mode(base_mode: int, to_who: str, from_who: str) -> 
 
 
 def _clear_symbolic_mode(mode: int, who: str) -> int:
+    """Return integer mode that has been cleared for a given symbolic user class."""
     for who_char, perm_char in itertools.product(who, "rwxst"):
         symbol = who_char + perm_char
         if symbol not in CHMOD_SYMBOLIC_TABLE:
@@ -661,6 +664,7 @@ def umask(mask: int = 0) -> t.Iterator[None]:
 def _candidate_temp_pathname(
     path: StrPath = "", prefix: StrPath = "", suffix: StrPath = "", hidden: bool = True
 ) -> str:
+    """Return random temporary path name that doesn't yet exist."""
     tries = 100
     for _ in range(tries):
         filename = Path(_random_name(path=path, prefix=prefix, suffix=suffix))
@@ -676,6 +680,7 @@ def _candidate_temp_pathname(
 def _random_name(
     path: StrPath = "", prefix: StrPath = "", suffix: StrPath = "", length: int = 8
 ) -> str:
+    """Return generated random path name."""
     _pid, _random = getattr(_random_name, "_state", (None, None))
     if _pid != os.getpid() or not _random:
         # Ensure separate processes don't share same random generator.
