@@ -23,6 +23,18 @@ except ImportError:  # pragma: no cover
     fcntl = None  # type: ignore
 
 
+try:
+    from pwd import getpwnam
+except ImportError:  # pragma: no cover
+    getpwnam = None  # type: ignore
+
+
+try:
+    from grp import getgrnam
+except ImportError:  # pragma: no cover
+    getgrnam = None  # type: ignore
+
+
 CHMOD_SYMBOLIC_PATTERN = re.compile(r"^(?P<who>[ugoa]*)(?P<op>[+\-=])(?P<perm>[ugo]|[rwxst]*)$")
 CHMOD_SYMBOLIC_TABLE: t.Dict[str, int] = {
     "ur": stat.S_IRUSR,
@@ -349,6 +361,84 @@ def _clear_symbolic_mode(mode: int, who: str) -> int:
             continue
         mode &= ~CHMOD_SYMBOLIC_TABLE[who_char + perm_char]
     return mode
+
+
+def chown(
+    path: t.Union[StrPath, int],
+    user: t.Optional[t.Union[str, int]] = None,
+    group: t.Optional[t.Union[str, int]] = None,
+    *,
+    follow_symlinks: bool = True,
+    recursive: bool = False,
+) -> None:
+    """
+    Change ownership of file or directory to user and/or group.
+
+    User and group can be a string name or a numeric id. Leave as ``None`` to not change the
+    respective user or group ownership.
+
+    Args:
+        path: File, directory, or file-descriptor.
+        user: User name or uid to set as owner. Use ``None`` or ``-1`` to not change.
+        group: Group name or gid to set as owner. Use ``None`` or ``-1`` to not change.
+        follow_symlinks: Whether to follow symlinks.
+        recursive: Whether to recursively apply ownership to subdirectories and their files.
+    """
+    if user in (None, -1) and group in (None, -1):
+        raise ValueError("chown: user and/or group must be set")
+
+    if user is None:
+        # -1 means don't change it
+        uid = -1
+    else:
+        uid = _get_uid(user)  # type: ignore
+        if uid is None:
+            raise LookupError(f"chown: no such user: {user!r}")
+
+    if group is None:
+        # -1 means don't change it
+        gid = -1
+    else:
+        gid = _get_gid(group)  # type: ignore
+        if gid is None:
+            raise LookupError(f"chown: no such group: {group!r}")
+
+    if not isinstance(path, int):
+        path = Path(path)
+
+    os.chown(path, uid, gid, follow_symlinks=follow_symlinks)
+
+    if recursive and isinstance(path, Path) and path.is_dir():
+        for subpath in walk(path):
+            # Disable recursive option so we can handle all sub-paths from here instead of using
+            # recursive function calls.
+            chown(subpath, uid, gid, follow_symlinks=follow_symlinks, recursive=False)
+
+
+def _get_uid(name: t.Optional[t.Union[str, int]]) -> t.Optional[int]:
+    """Return an uid given a user name."""
+    uid: t.Optional[int] = None
+    if isinstance(name, int):
+        uid = name
+    elif isinstance(name, str):
+        try:
+            uid = getpwnam(name).pw_uid
+        except (KeyError, TypeError, ValueError):
+            pass
+    return uid
+
+
+def _get_gid(name: t.Optional[t.Union[str, int]]) -> t.Optional[int]:
+    """Return a gid given a group name."""
+    gid: t.Optional[int] = None
+    if isinstance(name, int):
+        gid = name
+    elif isinstance(name, str):
+        try:
+            gid = getgrnam(name).gr_gid
+        except (KeyError, TypeError, ValueError):
+            pass
+    return gid
 
 
 def cp(src: StrPath, dst: StrPath, *, follow_symlinks: bool = True) -> None:

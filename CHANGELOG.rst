@@ -8,6 +8,7 @@ vX.Y.Z (2020-03-04)
 - Add functions:
 
   - ``chmod``
+  - ``chown``
 
 
 v0.5.0 (2020-03-04)
