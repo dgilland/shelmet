@@ -13,6 +13,7 @@ import stat
 import string
 import typing as t
 
+from .path import walk
 from .types import StrPath
 
 
@@ -176,7 +177,11 @@ def _backup_namer(
 
 
 def chmod(
-    path: t.Union[StrPath, int], mode: t.Union[str, int], *, follow_symlinks: bool = True
+    path: t.Union[StrPath, int],
+    mode: t.Union[str, int],
+    *,
+    follow_symlinks: bool = True,
+    recursive: bool = False,
 ) -> None:
     """
     Change file or directory permissions using numeric or symbolic modes.
@@ -244,7 +249,11 @@ def chmod(
         path: File, directory, or file-descriptor.
         mode: Permission mode to set.
         follow_symlinks: Whether to follow symlinks.
+        recursive: Whether to recursively apply permissions to subdirectories and their files.
     """
+    if not isinstance(path, int):
+        path = Path(path)
+
     if isinstance(mode, str):
         # Attempt to convert mode from octal string to integer to support values like "640".
         try:
@@ -252,15 +261,25 @@ def chmod(
         except (ValueError, TypeError):
             pass
 
+    # Store original mode in case recursive=True since symbolic mode can depend on the target's
+    # current mode so we may need a unique mode for each which will have to start with the original.
+    original_mode = mode
+
     if isinstance(mode, str):
         # Process mode as symbolic permissions like "ug=rw,o=r".
         if isinstance(path, int):
             path_stat = os.stat(path)
         else:
-            path_stat = Path(path).stat()
+            path_stat = path.stat()
         mode = _get_symbolic_mode(path_stat.st_mode, mode)
 
     os.chmod(path, mode, follow_symlinks=follow_symlinks)
+
+    if recursive and isinstance(path, Path) and path.is_dir():
+        for subpath in walk(path):
+            # Disable recursive option so we can handle all sub-paths from here instead of using
+            # recursive function calls.
+            chmod(subpath, original_mode, follow_symlinks=follow_symlinks, recursive=False)
 
 
 def _get_symbolic_mode(base_mode: int, symbolic_mode: str) -> int:

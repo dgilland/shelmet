@@ -7,6 +7,8 @@ from pytest import param
 
 import shelmet as sh
 
+from .utils import Dir, File
+
 
 parametrize = pytest.mark.parametrize
 
@@ -100,6 +102,66 @@ def test_chmod__accepts_fileno(test_file: Path):
 
     filemode = stat.filemode(test_file.stat().st_mode)
     assert filemode == "-rwxrwxrwx"
+
+
+@parametrize(
+    "items, mode, expected_file_mode, expected_dir_mode",
+    [
+        param(
+            [
+                Dir("a", File("1.txt"), File("2.txt"), File("3.txt")),
+                Dir(
+                    "b",
+                    Dir("c", File("4.txt"), Dir("d", File("5.txt"))),
+                    File("6.txt"),
+                    File("7.txt"),
+                    File("8.txt"),
+                ),
+                File("9.txt"),
+                File("10.txt"),
+            ],
+            "766",
+            "-rwxrw-rw-",
+            "drwxrw-rw-",
+        ),
+        param(
+            [
+                Dir("a", File("1.txt"), File("2.txt"), File("3.txt")),
+                Dir(
+                    "b",
+                    Dir("c", File("4.txt"), Dir("d", File("5.txt"))),
+                    File("6.txt"),
+                    File("7.txt"),
+                    File("8.txt"),
+                ),
+                File("9.txt"),
+                File("10.txt"),
+            ],
+            "go-rwx",
+            "-rw-------",
+            "drwx------",
+        ),
+    ],
+)
+def test_chmod__recursively_sets_mode(
+    tmp_path: Path,
+    items: t.List[t.Union[Dir, File]],
+    mode: t.Union[int, str],
+    expected_file_mode: int,
+    expected_dir_mode: int,
+):
+    test_dir = Dir(tmp_path / "test_dir", *items)
+    test_dir.mkdir()
+
+    sh.chmod(test_dir.path, mode, recursive=True)
+
+    for path in (test_dir.path, *sh.walk(test_dir.path)):
+        expected_mode = expected_dir_mode if path.is_dir() else expected_file_mode
+        path_mode = stat.filemode(path.stat().st_mode)
+
+        assert (
+            path_mode == expected_mode
+        ), f"Expected mode of {path} to be {expected_mode!r}, not {path_mode!r}"
 
 
 @parametrize(
