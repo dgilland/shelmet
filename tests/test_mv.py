@@ -16,7 +16,7 @@ parametrize = pytest.mark.parametrize
 
 
 @parametrize(
-    "src, dst, expected",
+    "src_file, dst_file, expected",
     [
         param(
             File("src.txt", text="src"),
@@ -26,36 +26,56 @@ parametrize = pytest.mark.parametrize
         ),
         param(
             File("src.txt", text="src"),
-            Dir("dst"),
-            File("dst/src.txt", text="src"),
-            id="to_new_file_under_destination",
-        ),
-        param(
-            File("src.txt", text="src"),
             File("dst.txt", text="dst"),
             File("dst.txt", text="src"),
             id="to_overwite_existing_file",
         ),
     ],
 )
-def test_mv__moves_file(tmp_path: Path, src: File, dst: t.Union[File, Dir], expected: File):
-    base_dir = Dir(tmp_path)
-    src_file = base_dir.add_file(src)
-    expected_file = base_dir.new_file(expected)
+def test_mv__moves_file_to_file(tmp_path: Path, src_file: File, dst_file: File, expected: File):
+    base_dir = Dir(tmp_path, src_file)
+    base_dir.mkdir()
 
-    dst_target: t.Union[File, Dir]
-    if isinstance(dst, File):
-        dst_target = base_dir.new_file(dst)
-        if dst_target.text:
-            dst_target.write()
-    else:
-        dst_target = base_dir.add_dir(dst)
+    expected_file_path = base_dir.path / expected.path
+    expected_file_text = expected.text
 
-    sh.mv(src_file.path, dst_target.path)
+    dst_target_path = base_dir.path / dst_file.path
+    if dst_file.text:
+        dst_target_path.write_text(dst_file.text)
+
+    sh.mv(src_file.path, dst_target_path)
 
     assert not src_file.path.exists()
-    assert expected_file.path.exists()
-    assert expected_file.path.read_text() == expected_file.text
+    assert expected_file_path.exists()
+    assert expected_file_path.read_text() == expected_file_text
+
+
+@parametrize(
+    "src_file, dst_dir, expected",
+    [
+        param(
+            File("src.txt", text="src"),
+            Dir("dst"),
+            File("dst/src.txt", text="src"),
+            id="to_new_file_under_destination",
+        ),
+    ],
+)
+def test_mv__moves_file_to_dir(tmp_path: Path, src_file: File, dst_dir: Dir, expected: File):
+    base_dir = Dir(tmp_path, src_file)
+    base_dir.mkdir()
+
+    expected_file_path = base_dir.path / expected.path
+    expected_file_text = expected.text
+
+    dst_target_path = base_dir.path / dst_dir.path
+    dst_target_path.mkdir()
+
+    sh.mv(src_file.path, dst_target_path)
+
+    assert not src_file.path.exists()
+    assert expected_file_path.exists()
+    assert expected_file_path.read_text() == expected_file_text
 
 
 @parametrize(
@@ -64,13 +84,13 @@ def test_mv__moves_file(tmp_path: Path, src: File, dst: t.Union[File, Dir], expe
         param([File("1.txt", text="1")], "dst", "dst", id="to_new_dir"),
         param(
             [File("1.txt", text="1")],
-            Dir("dst", files=[File("2.txt")]),
+            Dir("dst", File("2.txt")),
             "dst/src",
             id="to_new_dir_under_destination",
         ),
         param(
             [File("1.txt", text="1")],
-            Dir("dst", dirs=[Dir("src")]),
+            Dir("dst", Dir("src")),
             "dst/src",
             id="to_new_dir_overwriting_existing_dir_under_destination",
         ),
@@ -79,11 +99,11 @@ def test_mv__moves_file(tmp_path: Path, src: File, dst: t.Union[File, Dir], expe
 def test_mv__moves_dir(
     tmp_path: Path, src_files: t.List[File], dst: t.Union[Dir, str], expected: str
 ):
-    src_dir = Dir(tmp_path / "src", files=src_files)
+    src_dir = Dir(tmp_path / "src", *src_files)
     src_dir.mkdir()
 
     if isinstance(dst, Dir):
-        dst_dir = Dir(tmp_path / dst.path, files=dst.files)
+        dst_dir = Dir(tmp_path / dst.path, *dst.files)
         dst_dir.mkdir()
     else:
         dst_dir = Dir(tmp_path / dst)
@@ -95,8 +115,8 @@ def test_mv__moves_dir(
     assert expected_dst_dir.path.exists()
 
     for src_file in src_files:
-        dst_file = expected_dst_dir.new_file(src_file)
-        assert dst_file.path.read_text() == src_file.text
+        dst_file_path = expected_dst_dir.path / src_file.path.name
+        assert dst_file_path.read_text() == src_file.text
 
 
 def test_mv__allows_same_file_as_destination(tmp_path: Path):
@@ -128,9 +148,9 @@ def test_mv__works_across_file_systems(tmp_path: Path):
 
 
 def test_mv__raises_when_source_dir_exists_in_destination_and_is_not_empty(tmp_path: Path):
-    src_dir = Dir(tmp_path / "src", files=[File("src.txt", text="src")])
+    src_dir = Dir(tmp_path / "src", File("src.txt", text="src"))
     src_dir.mkdir()
-    dst_dir = Dir(tmp_path / "dst", files=[File("src/other.txt", text="other")])
+    dst_dir = Dir(tmp_path / "dst", File("src/other.txt", text="other"))
     dst_dir.mkdir()
 
     with pytest.raises(OSError):

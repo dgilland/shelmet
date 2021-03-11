@@ -18,16 +18,16 @@ parametrize = pytest.mark.parametrize
         param([File("1.txt")], id="one_file"),
         param([File("1.txt"), File("2.txt"), File("3.txt")], id="many_files"),
         param([Dir("1")], id="one_dir_with_no_files"),
-        param([Dir("1", files=[File("1.txt"), File("2.txt")])], id="one_dir_with_files"),
+        param([Dir("1", File("1.txt"), File("2.txt"))], id="one_dir_with_files"),
         param(
             [Dir("1"), Dir("2"), Dir("3/4"), Dir("5/6/7")],
             id="many_dirs_with_no_files",
         ),
         param(
             [
-                Dir("1", files=[File("1.txt")]),
-                Dir("2", files=[File("2.txt")], dirs=[Dir("2.1")]),
-                Dir("3/4", files=[File("3.txt"), File("4.txt")]),
+                Dir("1", File("1.txt")),
+                Dir("2", File("2.txt"), Dir("2.1")),
+                Dir("3/4", File("3.txt"), File("4.txt")),
                 Dir("5/6/7"),
             ],
             id="many_dirs_with_files",
@@ -35,15 +35,15 @@ parametrize = pytest.mark.parametrize
     ],
 )
 def test_rm(tmp_path: Path, sources: t.Sequence[File]):
-    base_dir = Dir(tmp_path)
-    srcs = [base_dir.add(source) for source in sources]
+    base_dir = Dir(tmp_path, *sources)
+    base_dir.mkdir()
 
-    for src in srcs:
+    for src in sources:
         assert src.path.exists()
 
-    sh.rm(*(src.path for src in srcs))
+    sh.rm(*(src.path for src in sources))
 
-    for src in srcs:
+    for src in sources:
         assert not src.path.exists()
 
 
@@ -51,16 +51,16 @@ def test_rm(tmp_path: Path, sources: t.Sequence[File]):
     "sources",
     [
         param([Dir("1")], id="one_dir_with_no_files"),
-        param([Dir("1", files=[File("1.txt"), File("2.txt")])], id="one_dir_with_files"),
+        param([Dir("1", File("1.txt"), File("2.txt"))], id="one_dir_with_files"),
         param(
             [Dir("1"), Dir("2"), Dir("3/4"), Dir("5/6/7")],
             id="many_dirs_with_no_files",
         ),
         param(
             [
-                Dir("1", files=[File("1.txt")]),
-                Dir("2", files=[File("2.txt")], dirs=[Dir("2.1")]),
-                Dir("3/4", files=[File("3.txt"), File("4.txt")]),
+                Dir("1", File("1.txt")),
+                Dir("2", File("2.txt"), Dir("2.1")),
+                Dir("3/4", File("3.txt"), File("4.txt")),
                 Dir("5/6/7"),
             ],
             id="many_dirs_with_files",
@@ -68,15 +68,15 @@ def test_rm(tmp_path: Path, sources: t.Sequence[File]):
     ],
 )
 def test_rmdir(tmp_path: Path, sources: t.Sequence[File]):
-    base_dir = Dir(tmp_path)
-    srcs = [base_dir.add(source) for source in sources]
+    base_dir = Dir(tmp_path, *sources)
+    base_dir.mkdir()
 
-    for src in srcs:
+    for src in sources:
         assert src.path.exists()
 
-    sh.rmdir(*(src.path for src in srcs))
+    sh.rmdir(*(src.path for src in sources))
 
-    for src in srcs:
+    for src in sources:
         assert not src.path.exists()
 
 
@@ -96,15 +96,15 @@ def test_rmdir__raises_on_file(tmp_path: Path):
     ],
 )
 def test_rmfile(tmp_path: Path, sources: t.Sequence[File]):
-    base_dir = Dir(tmp_path)
-    srcs = [base_dir.add(source) for source in sources]
+    base_dir = Dir(tmp_path, *sources)
+    base_dir.mkdir()
 
-    for src in srcs:
+    for src in sources:
         assert src.path.exists()
 
-    sh.rmfile(*(src.path for src in srcs))
+    sh.rmfile(*(src.path for src in sources))
 
-    for src in srcs:
+    for src in sources:
         assert not src.path.exists()
 
 

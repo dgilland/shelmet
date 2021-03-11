@@ -21,8 +21,8 @@ parametrize = pytest.mark.parametrize
     [
         param(
             [
-                Dir("x/xx", files=[File("x1.txt")]),
-                Dir("y/yy", files=[File("y1.txt"), File("y2.txt")]),
+                Dir("x/xx", File("x1.txt")),
+                Dir("y/yy", File("y1.txt"), File("y2.txt")),
                 Dir("z/zz"),
                 File("a.txt"),
                 File("b.txt"),
@@ -33,8 +33,8 @@ parametrize = pytest.mark.parametrize
         ),
         param(
             [
-                Dir("x/xx", files=[File("x1.txt")]),
-                Dir("y/yy", files=[File("y1.txt"), File("y2.txt")]),
+                Dir("x/xx", File("x1.txt")),
+                Dir("y/yy", File("y1.txt"), File("y2.txt")),
                 Dir("z/zz"),
                 File("a.txt"),
                 File("b.txt"),
@@ -58,8 +58,8 @@ parametrize = pytest.mark.parametrize
         ),
         param(
             [
-                Dir("x/xx", files=[File("x1.txt")]),
-                Dir("y/yy", files=[File("y1.txt"), File("y2.txt")]),
+                Dir("x/xx", File("x1.txt")),
+                Dir("y/yy", File("y1.txt"), File("y2.txt")),
                 Dir("z/zz"),
                 File("a.txt"),
                 File("b.txt"),
@@ -77,8 +77,8 @@ parametrize = pytest.mark.parametrize
         ),
         param(
             [
-                Dir("x/xx", files=[File("x1.txt")]),
-                Dir("y/yy", files=[File("y1.txt"), File("y2.txt")]),
+                Dir("x/xx", File("x1.txt")),
+                Dir("y/yy", File("y1.txt"), File("y2.txt")),
                 Dir("z/zz"),
                 File("a.txt"),
                 File("b.txt"),
@@ -89,8 +89,8 @@ parametrize = pytest.mark.parametrize
         ),
         param(
             [
-                Dir("x/xx", files=[File("x1.txt")]),
-                Dir("y/yy", files=[File("y1.txt"), File("y2.txt")]),
+                Dir("x/xx", File("x1.txt")),
+                Dir("y/yy", File("y1.txt"), File("y2.txt")),
                 Dir("z/zz"),
                 File("a.txt"),
                 File("b.txt"),
@@ -101,8 +101,8 @@ parametrize = pytest.mark.parametrize
         ),
         param(
             [
-                Dir("x/xx", files=[File("x1.txt")]),
-                Dir("y/yy", files=[File("y1.txt"), File("y2.txt")]),
+                Dir("x/xx", File("x1.txt")),
+                Dir("y/yy", File("y1.txt"), File("y2.txt")),
                 Dir("z/zz"),
                 File("a.txt"),
                 File("b.txt"),
@@ -113,8 +113,8 @@ parametrize = pytest.mark.parametrize
         ),
         param(
             [
-                Dir("x/xx", files=[File("x1.txt")]),
-                Dir("y/yy", files=[File("y1.txt"), File("y2.txt")]),
+                Dir("x/xx", File("x1.txt")),
+                Dir("y/yy", File("y1.txt"), File("y2.txt")),
                 Dir("z/zz"),
                 File("a.txt"),
                 File("b.txt"),
@@ -132,8 +132,8 @@ parametrize = pytest.mark.parametrize
         ),
         param(
             [
-                Dir("x/xx", files=[File("x1.txt")]),
-                Dir("y/yy", files=[File("y1.txt"), File("y2.txt")]),
+                Dir("x/xx", File("x1.txt")),
+                Dir("y/yy", File("y1.txt"), File("y2.txt")),
                 Dir("z/zz"),
                 File("a.txt"),
                 File("b.txt"),
@@ -151,8 +151,8 @@ parametrize = pytest.mark.parametrize
         ),
         param(
             [
-                Dir("x/xx", files=[File("x1.txt")]),
-                Dir("y/yy", files=[File("y1.txt"), File("y2.txt")]),
+                Dir("x/xx", File("x1.txt")),
+                Dir("y/yy", File("y1.txt"), File("y2.txt")),
                 Dir("z/zz"),
                 File("a.txt"),
                 File("b.txt"),
@@ -169,8 +169,7 @@ def test_ls(
     kwargs: dict,
     expected_contents: t.Set[Path],
 ):
-    src = Dir(tmp_path)
-    src.add_all(items)
+    src = Dir(tmp_path, *items)
     src.mkdir()
     with sh.cd(tmp_path):
         contents = set(sh.ls("", **kwargs))
@@ -208,8 +207,7 @@ def test_ls__includes_on_multiple_types(tmp_path: Path, include: LsFilter):
         Path("d_file_include"),
         Path("f_file_include"),
     }
-    src = Dir(tmp_path)
-    src.add_all(items)
+    src = Dir(tmp_path, *items)
     src.mkdir()
     with sh.cd(tmp_path):
         contents = set(sh.ls("", include=include))
@@ -251,8 +249,7 @@ def test_ls__uses_only_files_and_only_dirs_in_include(
     kwargs: dict,
     expected_contents: t.Set[Path],
 ):
-    src = Dir(tmp_path)
-    src.add_all(items)
+    src = Dir(tmp_path, *items)
     src.mkdir()
     with sh.cd(tmp_path):
         contents = set(sh.ls("", **kwargs))
@@ -285,8 +282,7 @@ def test_ls__excludes_on_multiple_types(tmp_path: Path, exclude: LsFilter):
         File("f_file_exclude"),
     ]
     expected_contents = {Path("b_dir"), Path("e_file")}
-    src = Dir(tmp_path)
-    src.add_all(items)
+    src = Dir(tmp_path, *items)
     src.mkdir()
     with sh.cd(tmp_path):
         contents = set(sh.ls("", exclude=exclude))
@@ -295,16 +291,15 @@ def test_ls__excludes_on_multiple_types(tmp_path: Path, exclude: LsFilter):
 
 def test_ls__does_not_recurse_into_excluded_dirs(tmp_path: Path):
     items: t.List[t.Union[Dir, File]] = [
-        Dir("a_dir_excluded", files=[File("a1.txt")]),
-        Dir("b_dir", files=[File("b2.txt")]),
+        Dir("a_dir_excluded", File("a1.txt")),
+        Dir("b_dir", File("b2.txt")),
     ]
     expected_contents = {
         Path("b_dir"),
         Path("b_dir/b2.txt"),
     }
     exclude = "*_excluded"
-    src = Dir(tmp_path)
-    src.add_all(items)
+    src = Dir(tmp_path, *items)
     src.mkdir()
     with sh.cd(tmp_path):
         contents = set(sh.ls("", exclude=exclude, recursive=True))

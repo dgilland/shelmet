@@ -1,4 +1,5 @@
 from contextlib import contextmanager
+import itertools
 from pathlib import Path
 import typing as t
 from unittest import mock
@@ -50,99 +51,44 @@ class File:
 
 
 class Dir:
-    def __init__(
-        self,
-        path: t.Union[Path, str],
-        files: t.Optional[t.Sequence[t.Union[File, str]]] = None,
-        dirs: t.Optional[t.Sequence[t.Union["Dir", str]]] = None,
-    ):
+    def __init__(self, path: t.Union[Path, str], *items: t.Union[File, "Dir"]):
         self.path = Path(path)
-        self.files: t.List[File] = []
-        self.dirs: t.List[Dir] = []
+        self.items = list(items) if items else []
 
-        if dirs:
-            self.dirs = [self.new_dir(dir) for dir in dirs]
+    @property
+    def files(self) -> t.List[File]:
+        return [item for item in self.items if isinstance(item, File)]
 
-        if files:
-            self.files = [self.new_file(file) for file in files]
+    @property
+    def dirs(self) -> t.List["Dir"]:
+        return [item for item in self.items if isinstance(item, Dir)]
 
     def __repr__(self) -> str:
         return (
             f"{self.__class__.__name__}(path={self.path!r}, files={self.files}, dirs={self.dirs})"
         )
 
-    def mkdir(
-        self,
-        files: t.Optional[t.Sequence[t.Union[File, str]]] = None,
-        dirs: t.Optional[t.Sequence[t.Union["Dir", str]]] = None,
-    ) -> None:
+    def mkdir(self) -> None:
         self.path.mkdir(parents=True, exist_ok=True)
 
-        if dirs:
-            self.dirs.extend(self.new_dir(dir) for dir in dirs)
-
-        if files:
-            self.files.extend(self.new_file(file) for file in files)
-
         for dir in self.dirs:
+            dir.path = self.path / dir.path
             dir.mkdir()
 
         for file in self.files:
+            file.path = self.path / file.path
             file.write()
 
-    def add(self, item: t.Union[File, "Dir"]) -> t.Union[File, "Dir"]:
-        if isinstance(item, File):
-            return self.add_file(item)
-        else:
-            return self.add_dir(item)
-
-    def add_all(self, items: t.Sequence[t.Union[File, "Dir"]]) -> t.List[t.Union[File, "Dir"]]:
-        return [self.add(item) for item in items]
-
-    def add_file(
-        self, file: t.Union[File, str], size: int = 0, text: t.Optional[str] = None
-    ) -> File:
-        fake_file = self.new_file(file, size=size, text=text)
-        fake_file.write()
-        self.files.append(fake_file)
-        return fake_file
-
-    def add_dir(self, dir: t.Union["Dir", str]) -> "Dir":
-        fake_dir = self.new_dir(dir)
-        fake_dir.mkdir()
-        return fake_dir
-
-    def new_file(
-        self, file: t.Union[File, str], size: int = 0, text: t.Optional[str] = None
-    ) -> File:
-        kwargs: t.Dict[str, t.Any] = {}
-        if isinstance(file, File):
-            kwargs["path"] = file.path
-            kwargs["size"] = file.size
-            kwargs["text"] = file.text
-        else:
-            kwargs["path"] = file
-            kwargs["size"] = size
-            kwargs["text"] = text
-        kwargs["path"] = self.path / kwargs["path"]
-        return File(**kwargs)
-
-    def new_dir(self, dir: t.Union["Dir", str]) -> "Dir":
-        kwargs: t.Dict[str, t.Any] = {}
-        if isinstance(dir, Dir):
-            kwargs["path"] = dir.path
-            kwargs["files"] = dir.files
-            kwargs["dirs"] = dir.dirs
-
-            for f in kwargs["files"]:
-                f.path = f.path.relative_to(dir.path)
-
-            for d in kwargs["dirs"]:
-                d.path = d.path.relative_to(dir.path)
-        else:
-            kwargs["path"] = dir
-        kwargs["path"] = self.path / kwargs["path"]
-        return Dir(**kwargs)
+    def repath(self, root: Path) -> "Dir":
+        items = []
+        for item in self.items:
+            new_path = root / item.path.relative_to(self.path)
+            if isinstance(item, File):
+                item = File(new_path, size=item.size, text=item.text)
+            else:
+                item = item.repath(new_path)
+            items.append(item)
+        return Dir(root, *items)
 
 
 @contextmanager

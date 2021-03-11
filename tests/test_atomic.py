@@ -22,7 +22,7 @@ parametrize = pytest.mark.parametrize
     ],
 )
 def test_atomicdir(tmp_path: Path, opts: t.Dict[str, t.Any]):
-    dir = Dir(tmp_path / "test")
+    dir_path = tmp_path / "test"
     files = [
         File("1.txt", text="1"),
         File("2.txt", text="2"),
@@ -32,19 +32,21 @@ def test_atomicdir(tmp_path: Path, opts: t.Dict[str, t.Any]):
         File("c/c.txt", text="c"),
     ]
 
-    with sh.atomicdir(dir.path, **opts) as tmp_path:
-        assert tmp_path.exists()
-        assert not dir.path.exists()
+    with sh.atomicdir(dir_path, **opts) as stage_path:
+        assert stage_path.exists()
+        assert not dir_path.exists()
 
-        Dir(tmp_path).mkdir(files=files)
+        stage_dir = Dir(stage_path, *files)
+        stage_dir.mkdir()
 
-        assert not dir.path.exists()
+        assert not dir_path.exists()
 
-    assert dir.path.exists()
-    for file in files:
-        file_path = dir.path / file.path
-        assert file_path.exists()
-        assert file_path.read_text() == file.text
+    assert dir_path.exists()
+
+    created_files = stage_dir.repath(dir_path).files
+    for file in created_files:
+        assert file.path.exists()
+        assert file.path.read_text() == file.text
 
 
 def test_atomicdir__syncs_dir(tmp_path: Path):
@@ -69,7 +71,7 @@ def test_atomicdir__skips_sync_when_disabled(tmp_path: Path):
 
 
 def test_atomicdir__overwrites_when_enabled(tmp_path: Path):
-    dir = Dir(tmp_path / "test", files=[File("1"), File("2"), File("3")])
+    dir = Dir(tmp_path / "test", File("1"), File("2"), File("3"))
     dir.mkdir()
 
     assert list(dir.path.iterdir())
@@ -81,7 +83,7 @@ def test_atomicdir__overwrites_when_enabled(tmp_path: Path):
 
 
 def test_atomicdir__does_not_overwrite_when_disabled(tmp_path: Path):
-    dir = Dir(tmp_path / "test", files=[File("1"), File("2"), File("3")])
+    dir = Dir(tmp_path / "test", File("1"), File("2"), File("3"))
     dir.mkdir()
 
     with pytest.raises(FileExistsError):

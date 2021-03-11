@@ -58,7 +58,7 @@ parametrize = pytest.mark.parametrize
 def test_getdirsize(
     tmp_path: Path, files: t.List[File], pattern: t.Optional[str], expected_size: int
 ):
-    Dir(tmp_path).mkdir(files=files)
+    Dir(tmp_path, *files).mkdir()
     kwargs = {}
     if pattern:
         kwargs["pattern"] = pattern
