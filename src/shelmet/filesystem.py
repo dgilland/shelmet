@@ -617,8 +617,8 @@ def mv(src: StrPath, dst: StrPath) -> None:
     - If src is a file and dst is a directory, then src will be moved under dst.
     - If src is a directory and dst does not exist, then src will be renamed to dst and any parent
       directories that don't exist in the dst path will be created.
-    - If src is a directory and dst is a directory and the src's basename does not exist or if the
-      basename is an empty directory, then src will be moved under dst.
+    - If src is a directory and dst is a directory and the src's basename does not exist under dst
+      or if it is an empty directory, then src will be moved under dst.
     - If src is directory and dst is a directory and the src's basename is a non-empty directory
       under dst, then an ``OSError`` will be raised.
     - If src and dst reference two difference file-systems, then src will be copied to dst using

@@ -53,7 +53,7 @@ def ls(
     Yield directory contents as ``Path`` objects.
 
     Args:
-        path: Directory to list
+        path: Directory to list.
         recursive: Whether to recurse into subdirectories. Defaults to ``False``.
         only_files: Limit results to files only. Mutually exclusive with ``only_dirs``.
         only_dirs: Limit results to directories only. Mutually exclusive with ``only_files``.
@@ -119,7 +119,7 @@ def lsfiles(
         Use :func:`.walkfiles` to recursively yield all files from a directory.
 
     Args:
-        path: Directory to list
+        path: Directory to list.
         include: Include paths by filtering on a glob-pattern string, compiled regex, callable, or
             iterable containing any of those types. Path is yielded if any of the filters return
             ``True`` and path matches ``only_files`` or ``only_dirs`` if set. If path is a directory
@@ -150,7 +150,7 @@ def lsdirs(
         Use :func:`.walkdirs` to recursively yield all directories from a directory.
 
     Args:
-        path: Directory to list
+        path: Directory to list.
         include: Include paths by filtering on a glob-pattern string, compiled regex, callable, or
             iterable containing any of those types. Path is yielded if any of the filters return
             ``True`` and path matches ``only_files`` or ``only_dirs`` if set. If path is a directory
@@ -285,7 +285,7 @@ def walk(
         yield only the top-level contents of a directory.
 
     Args:
-        path: Directory to list
+        path: Directory to walk.
         only_files: Limit results to files only. Mutually exclusive with ``only_dirs``.
         only_dirs: Limit results to directories only. Mutually exclusive with ``only_files``.
         include: Include paths by filtering on a glob-pattern string, compiled regex, callable, or
@@ -325,7 +325,7 @@ def walkfiles(
         yield only the top-level files in a directory.
 
     Args:
-        path: Directory to list
+        path: Directory to walk.
         include: Include paths by filtering on a glob-pattern string, compiled regex, callable, or
             iterable containing any of those types. Path is yielded if any of the filters return
             ``True`` and path matches ``only_files`` or ``only_dirs`` if set. If path is a directory
@@ -356,7 +356,7 @@ def walkdirs(
         :func:`.lsfiles` to yield only the top-level directories in a directory.
 
     Args:
-        path: Directory to list
+        path: Directory to walk.
         include: Include paths by filtering on a glob-pattern string, compiled regex, callable, or
             iterable containing any of those types. Path is yielded if any of the filters return
             ``True`` and path matches ``only_files`` or ``only_dirs`` if set. If path is a directory
