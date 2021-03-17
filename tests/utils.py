@@ -1,5 +1,4 @@
 from contextlib import contextmanager
-import itertools
 from pathlib import Path
 import typing as t
 from unittest import mock
@@ -29,13 +28,16 @@ def is_subdict(subset: dict, superset: dict) -> bool:
 
 
 class File:
-    def __init__(self, path: t.Union[Path, str], size: int = 0, text: t.Optional[str] = None):
+    def __init__(self, path: t.Union[Path, str], text: t.Optional[str] = None, size: int = 0):
         self.path = Path(path)
-        self.size = size
         self.text = text
+        self.size = size
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(path={self.path!r})"
+
+    def clone(self) -> "File":
+        return self.__class__(self.path, text=self.text, size=self.size)
 
     def write(self) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)
@@ -53,7 +55,7 @@ class File:
 class Dir:
     def __init__(self, path: t.Union[Path, str], *items: t.Union[File, "Dir"]):
         self.path = Path(path)
-        self.items = list(items) if items else []
+        self.items = list(items)
 
     @property
     def files(self) -> t.List[File]:
@@ -67,6 +69,9 @@ class Dir:
         return (
             f"{self.__class__.__name__}(path={self.path!r}, files={self.files}, dirs={self.dirs})"
         )
+
+    def clone(self) -> "Dir":
+        return self.__class__(self.path, *self.items)
 
     def mkdir(self) -> None:
         self.path.mkdir(parents=True, exist_ok=True)
@@ -84,7 +89,8 @@ class Dir:
         for item in self.items:
             new_path = root / item.path.relative_to(self.path)
             if isinstance(item, File):
-                item = File(new_path, size=item.size, text=item.text)
+                item = item.clone()
+                item.path = new_path
             else:
                 item = item.repath(new_path)
             items.append(item)
