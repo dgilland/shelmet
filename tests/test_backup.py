@@ -1,6 +1,4 @@
 from datetime import datetime, timezone
-import filecmp
-import logging.handlers
 from pathlib import Path
 import re
 import typing as t
@@ -10,7 +8,7 @@ from pytest import param
 
 import shelmet as sh
 
-from .utils import Dir, File
+from .utils import Dir, File, is_same_dir, is_same_file
 
 
 parametrize = pytest.mark.parametrize
@@ -19,25 +17,6 @@ parametrize = pytest.mark.parametrize
 T_WRITE_FILE = t.Callable[[t.Union[str, Path], str], Path]
 DEFAULT_TS_PATTERN = r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+"
 DEFAULT_TS_FORMAT = "%Y-%m-%dT%H:%M:%S.%f%z"
-
-
-def is_same_file(file1: Path, file2: Path) -> bool:
-    return filecmp.cmp(file1, file2)
-
-
-def is_same_dir(dir1: Path, dir2: Path) -> bool:
-    return _is_same_dir(filecmp.dircmp(dir1, dir2))
-
-
-def _is_same_dir(dcmp: filecmp.dircmp) -> bool:
-    if dcmp.diff_files or dcmp.left_only or dcmp.right_only:
-        return False
-
-    for sub_dcmp in dcmp.subdirs.values():
-        if not _is_same_dir(sub_dcmp):
-            return False
-
-    return True
 
 
 @pytest.fixture()
