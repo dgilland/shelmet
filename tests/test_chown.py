@@ -7,7 +7,6 @@ from unittest import mock
 from uuid import uuid4
 
 import pytest
-from pytest import param
 
 import shelmet as sh
 
