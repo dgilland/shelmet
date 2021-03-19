@@ -2,7 +2,7 @@ Changelog
 =========
 
 
-vX.Y.Z (2020-03-04)
+vX.Y.Z (2021-03-04)
 -------------------
 
 - Add functions:
@@ -11,7 +11,7 @@ vX.Y.Z (2020-03-04)
   - ``chown``
 
 
-v0.5.0 (2020-03-04)
+v0.5.0 (2021-03-04)
 -------------------
 
 - Import all utility functions into ``shelmet`` namespace.
