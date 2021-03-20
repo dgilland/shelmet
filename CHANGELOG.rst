@@ -2,13 +2,15 @@ Changelog
 =========
 
 
-vX.Y.Z (2021-03-04)
+vX.Y.Z (YYYY-MM-DD)
 -------------------
 
 - Add functions:
 
+  - ``archive``
   - ``chmod``
   - ``chown``
+  - ``unarchive``
 
 
 v0.5.0 (2021-03-04)

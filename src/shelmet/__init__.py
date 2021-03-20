@@ -6,6 +6,7 @@ A shell power-up for working with the file system and running subprocess command
 
 __version__ = "0.5.0"
 
+from .archiving import ArchiveError, archive, unarchive
 from .command import Command, cmd, run
 from .fileio import (
     atomicdir,
