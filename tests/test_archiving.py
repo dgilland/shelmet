@@ -84,7 +84,7 @@ def _extract_tar(archive_file: Path, dst: Path, ext: str = "") -> None:
         ext = "".join(archive_file.suffixes)
     compression = TAR_COMPRESSIONS[ext]
     mode = f"r:{compression}"
-    with tarfile.open(archive_file, mode) as arc:
+    with tarfile.open(archive_file, mode, format=tarfile.PAX_FORMAT) as arc:
         arc.extractall(dst)
 
 
@@ -98,7 +98,7 @@ def _create_tar(archive_file: Path, *sources: Path, ext: str = "") -> None:
         ext = "".join(archive_file.suffixes)
     compression = TAR_COMPRESSIONS[ext]
     mode = f"w:{compression}"
-    with tarfile.open(archive_file, mode) as archive:
+    with tarfile.open(archive_file, mode, format=tarfile.PAX_FORMAT) as archive:
         for src in sources:
             archive.add(src, arcname=src.name)
 
@@ -116,7 +116,7 @@ def _create_unsafe_tar(archive_file: Path, src: Path, parent_path: Path) -> None
     ext = "".join(archive_file.suffixes)
     compression = TAR_COMPRESSIONS[ext]
     mode = f"w:{compression}"
-    with tarfile.open(archive_file, mode) as archive:
+    with tarfile.open(archive_file, mode, format=tarfile.PAX_FORMAT) as archive:
         with sh.cd(src.parent):
             items = [src.relative_to(src.parent)] + list(sh.walk(src.name))
             for item in items:
