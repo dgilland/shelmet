@@ -140,7 +140,7 @@ def atomicfile(
 
 
 @t.overload
-def read(file: StrPath, mode: ReadOnlyTextMode = "r", **open_kwargs: t.Any) -> str:
+def read(file: StrPath, mode: ReadOnlyTextMode, **open_kwargs: t.Any) -> str:
     ...  # pragma: no cover
 
 
@@ -199,10 +199,10 @@ def readtext(file: StrPath, **open_kwargs: t.Any) -> str:
 @t.overload
 def readchunks(
     file: StrPath,
-    mode: ReadOnlyTextMode = "r",
+    mode: ReadOnlyTextMode,
     *,
-    size: int = DEFAULT_CHUNK_SIZE,
-    sep: t.Optional[str] = None,
+    size: int = ...,
+    sep: t.Optional[str] = ...,
     **open_kwargs: t.Any,
 ) -> t.Generator[str, None, None]:
     ...  # pragma: no cover
@@ -213,8 +213,8 @@ def readchunks(
     file: StrPath,
     mode: ReadOnlyBinMode,
     *,
-    size: int = DEFAULT_CHUNK_SIZE,
-    sep: t.Optional[bytes] = None,
+    size: int = ...,
+    sep: t.Optional[bytes] = ...,
     **open_kwargs: t.Any,
 ) -> t.Generator[bytes, None, None]:
     ...  # pragma: no cover
@@ -225,8 +225,8 @@ def readchunks(
     file: StrPath,
     mode: str = "r",
     *,
-    size: int = DEFAULT_CHUNK_SIZE,
-    sep: t.Optional[t.Union[str, bytes]] = None,
+    size: int = ...,
+    sep: t.Optional[t.Union[str, bytes]] = ...,
     **open_kwargs: t.Any,
 ) -> t.Generator[t.Union[str, bytes], None, None]:
     ...  # pragma: no cover
@@ -294,21 +294,21 @@ def _readchunks(file, mode="r", *, size=DEFAULT_CHUNK_SIZE, sep=None, **open_kwa
 
 @t.overload
 def readlines(
-    file: StrPath, mode: ReadOnlyTextMode = "r", *, limit: int = -1, **open_kwargs: t.Any
+    file: StrPath, mode: ReadOnlyTextMode, *, limit: int = ..., **open_kwargs: t.Any
 ) -> t.Generator[str, None, None]:
     ...  # pragma: no cover
 
 
 @t.overload
 def readlines(
-    file: StrPath, mode: ReadOnlyBinMode, *, limit: int = -1, **open_kwargs: t.Any
+    file: StrPath, mode: ReadOnlyBinMode, *, limit: int = ..., **open_kwargs: t.Any
 ) -> t.Generator[bytes, None, None]:
     ...  # pragma: no cover
 
 
 @t.overload
 def readlines(
-    file: StrPath, mode: str = "r", *, limit: int = -1, **open_kwargs: t.Any
+    file: StrPath, mode: str = "r", *, limit: int = ..., **open_kwargs: t.Any
 ) -> t.Generator[t.Union[str, bytes], None, None]:
     ...  # pragma: no cover
 
@@ -351,9 +351,9 @@ def _readlines(file, mode="r", *, limit=-1, **open_kwargs):
 def write(
     file: StrPath,
     contents: str,
-    mode: WriteOnlyTextMode = "w",
+    mode: WriteOnlyTextMode,
     *,
-    atomic: bool = False,
+    atomic: bool = ...,
     **open_kwargs: t.Any,
 ) -> None:
     ...  # pragma: no cover
@@ -365,7 +365,7 @@ def write(
     contents: bytes,
     mode: WriteOnlyBinMode,
     *,
-    atomic: bool = False,
+    atomic: bool = ...,
     **open_kwargs: t.Any,
 ) -> None:
     ...  # pragma: no cover
@@ -377,7 +377,7 @@ def write(
     contents: t.Union[str, bytes],
     mode: str = "w",
     *,
-    atomic: bool = False,
+    atomic: bool = ...,
     **open_kwargs: t.Any,
 ) -> None:
     ...  # pragma: no cover
@@ -457,7 +457,7 @@ def writebytes(
 def writelines(
     file: StrPath,
     items: t.Iterable[str],
-    mode: WriteOnlyTextMode = "w",
+    mode: WriteOnlyTextMode,
     *,
     ending: t.Optional[str] = None,
     atomic: bool = False,
