@@ -162,11 +162,11 @@ class TarArchive(BaseArchive):
         """Return a list of file/directory names contained in the archive."""
         return self.backend.getnames()
 
-    def extractall(self, path) -> None:
+    def extractall(self, path: StrPath) -> None:
         """Extract all contents of the archive to the given path."""
         self.backend.extractall(path)
 
-    def add(self, path, arcname=None) -> None:
+    def add(self, path: StrPath, arcname: t.Optional[str] = None) -> None:
         """Add path to the archive non-recursively."""
         self.backend.add(path, arcname=arcname, recursive=False)
 
