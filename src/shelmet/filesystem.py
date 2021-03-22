@@ -443,6 +443,10 @@ def _get_gid(name: t.Optional[t.Union[str, int]]) -> t.Optional[int]:
 
 def cp(src: StrPath, dst: StrPath, *, follow_symlinks: bool = True) -> None:
     """
+    Copy file or directory to destination.
+
+    Files are copied atomically by first copying to a temporary file in the same target directory
+    and then renaming the temporary file to its actual filename.
 
     Args:
         src: Source file or directory to copy from.
