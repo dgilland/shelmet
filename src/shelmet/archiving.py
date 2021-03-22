@@ -13,6 +13,12 @@ from .path import walk
 from .types import StrPath
 
 
+# Use same default tar format for older Python versions for consistency (default was changed to PAX
+# in 3.8).
+# NOTE: This format is only used for writing and doesn't affect reading archives in other formats.
+DEFAULT_TAR_FORMAT = tarfile.PAX_FORMAT
+
+
 class ArchiveError(Exception):
     """General archive error."""
 
@@ -148,9 +154,9 @@ class TarArchive(BaseArchive):
             mode = f"{mode}:{cls.compression}"
 
         if isinstance(file, (str, bytes, Path)):
-            tar = tarfile.open(file, mode=mode)
+            tar = tarfile.open(file, mode=mode, format=DEFAULT_TAR_FORMAT)
         else:
-            tar = tarfile.open(fileobj=file, mode=mode)
+            tar = tarfile.open(fileobj=file, mode=mode, format=DEFAULT_TAR_FORMAT)
 
         return cls(tar)
 
