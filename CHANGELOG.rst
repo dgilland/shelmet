@@ -10,6 +10,7 @@ vX.Y.Z (YYYY-MM-DD)
   - ``archive``
   - ``chmod``
   - ``chown``
+  - ``lsarchive``
   - ``unarchive``
 
 

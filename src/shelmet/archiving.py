@@ -274,6 +274,22 @@ def archive(file: StrPath, *paths: StrPath, ext: str = "") -> None:
                 ) from exc
 
 
+def lsarchive(file: StrPath, ext: str = "") -> t.List[Path]:
+    """
+    Return list of member paths contained in archive file.
+
+    Args:
+        file: Archive file to list.
+        ext: Specify the archive format to use by referencing the corresponding file extension
+            (starting with a leading ".") instead of interfering the format from the `file`
+            extension.
+    """
+    file = Path(file)
+    archive_class = _get_archive_class_for_file(file, ext)
+    with archive_class.open(file, "r") as archive_file:
+        return [Path(item) for item in archive_file.list()]
+
+
 def unarchive(file: StrPath, dst: StrPath = ".", *, ext: str = "", trusted: bool = False) -> None:
     """
     Extract an archive to the given destination path.
