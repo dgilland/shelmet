@@ -53,7 +53,7 @@ class BaseArchive(ABC):
         pass  # pragma: no cover
 
     @abstractmethod
-    def names(self) -> t.List[str]:
+    def list(self) -> t.List[str]:
         """Return a list of file/directory names contained in the archive."""
         pass  # pragma: no cover
 
@@ -92,7 +92,7 @@ class BaseArchive(ABC):
         dst = Path(dst).resolve()
         safe_path_prefix = str(dst)
 
-        for name in self.names():
+        for name in self.list():
             extraction_path = (dst / name).resolve()
             if not str(extraction_path).startswith(safe_path_prefix):
                 raise ArchiveError(
@@ -116,11 +116,11 @@ class ZipArchive(BaseArchive):
         """Close the archive file."""
         self.backend.close()
 
-    def names(self) -> t.List[str]:
+    def list(self) -> t.List[str]:
         """Return a list of file/directory names contained in the archive."""
         return self.backend.namelist()
 
-    def extractall(self, path) -> None:
+    def extractall(self, path: StrPath) -> None:
         """Extract all contents of the archive to the given path."""
         self.backend.extractall(path)
 
@@ -158,7 +158,7 @@ class TarArchive(BaseArchive):
         """Close the archive file."""
         self.backend.close()
 
-    def names(self) -> t.List[str]:
+    def list(self) -> t.List[str]:
         """Return a list of file/directory names contained in the archive."""
         return self.backend.getnames()
 
