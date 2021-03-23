@@ -10,47 +10,9 @@ from typing import Iterable
 from .types import LsFilter, LsFilterable, LsFilterFn, StrPath
 
 
-@contextmanager
-def cd(path: StrPath) -> t.Iterator[None]:
+class Ls:
     """
-    Context manager that changes the working directory on enter and restores it on exit.
-
-    Args:
-        path: Directory to change to.
-    """
-    orig_cwd = os.getcwd()
-
-    if path:
-        os.chdir(path)
-
-    try:
-        yield
-    finally:
-        if path:
-            os.chdir(orig_cwd)
-
-
-def cwd() -> Path:
-    """Return current working directory as ``Path`` object."""
-    return Path.cwd()
-
-
-def homedir():
-    """Return current user's home directory as ``Path`` object."""
-    return Path.home()
-
-
-def ls(
-    path: StrPath = ".",
-    *,
-    recursive: bool = False,
-    only_files: bool = False,
-    only_dirs: bool = False,
-    include: t.Optional[LsFilter] = None,
-    exclude: t.Optional[LsFilter] = None,
-) -> t.Generator[Path, None, None]:
-    """
-    Yield directory contents as ``Path`` objects.
+    Directory listing iterable that iterates over its contents and returns them as ``Path`` objects.
 
     Args:
         path: Directory to list.
@@ -58,113 +20,72 @@ def ls(
         only_files: Limit results to files only. Mutually exclusive with ``only_dirs``.
         only_dirs: Limit results to directories only. Mutually exclusive with ``only_files``.
         include: Include paths by filtering on a glob-pattern string, compiled regex, callable, or
-            iterable containing any of those types. Path is yielded if any of the filters return
-            ``True`` and path matches ``only_files`` or ``only_dirs`` if set. If path is a directory
-            and is not included, its contents are still eligible for inclusion if they match one of
-            the include filters.
+            iterable containing any of those types. Path is included if any of the filters return
+            ``True`` and path matches ``only_files`` or ``only_dirs`` (if set). If path is a
+            directory and is not included, its contents are still eligible for inclusion if they
+            match one of the include filters.
         exclude: Exclude paths by filtering on a glob-pattern string, compiled regex, callable, or
             iterable containing any of those types. Path is not yielded if any of the filters return
-            ``True``. If the path is a directory and is excluded, then none of its contents will be
-            yielded.
-
-    Yields:
-        Contents of directory.
+            ``True``. If the path is a directory and is excluded, then all of its contents will be
+            excluded.
     """
-    if only_files and only_dirs:
-        raise ValueError("only_files and only_dirs cannot both be true")
 
-    include_filters: t.List[t.Callable[[Path], bool]] = []
-    exclude_filters: t.List[t.Callable[[Path], bool]] = []
+    def __init__(
+        self,
+        path: StrPath = ".",
+        *,
+        recursive: bool = False,
+        only_files: bool = False,
+        only_dirs: bool = False,
+        include: t.Optional[LsFilter] = None,
+        exclude: t.Optional[LsFilter] = None,
+    ):
+        if only_files and only_dirs:
+            raise ValueError("only_files and only_dirs cannot both be true")
 
-    if include:
-        if isinstance(include, Iterable) and not isinstance(include, (str, bytes)):
-            includes = include
-        else:
-            includes = [include]
-        # When creating the include filters, need to also take into account the only_* filter
-        # settings so that an include filter will only match if both are true.
-        include_filters.extend(
-            _make_ls_filter(only_files=only_files, only_dirs=only_dirs, filterable=incl)
-            for incl in includes
+        include_filters: t.List[t.Callable[[Path], bool]] = []
+        exclude_filters: t.List[t.Callable[[Path], bool]] = []
+
+        if include:
+            if isinstance(include, Iterable) and not isinstance(include, (str, bytes)):
+                includes = include
+            else:
+                includes = [include]
+            # When creating the include filters, need to also take into account the only_* filter
+            # settings so that an include filter will only match if both are true.
+            include_filters.extend(
+                _make_ls_filter(only_files=only_files, only_dirs=only_dirs, filterable=incl)
+                for incl in includes
+            )
+        elif only_files or only_dirs:
+            # If no include filters are given, but one of the only_* filters is, then we'll add it.
+            # Otherwise, when include is given, the only_* filters are taken into account for each
+            # include filter.
+            include_filters.append(_make_ls_filter(only_files=only_files, only_dirs=only_dirs))
+
+        if exclude:
+            if isinstance(exclude, Iterable) and not isinstance(exclude, (str, bytes)):
+                excludes = exclude
+            else:
+                excludes = [exclude]
+            exclude_filters.extend(_make_ls_filter(filterable=excl) for excl in excludes)
+
+        self.path = path
+        self.recursive = recursive
+        self.include_filters = include_filters
+        self.exclude_filters = exclude_filters
+
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}(path={self.path!r}, recursive={self.recursive})"
+
+    def __iter__(self) -> t.Iterator[Path]:
+        """Iterate over :attr:`path` and yield its contents."""
+        yield from _ls(
+            self.path,
+            recursive=self.recursive,
+            include_filters=self.include_filters,
+            exclude_filters=self.exclude_filters,
         )
-    elif only_files or only_dirs:
-        # If no include filters are given, but one of the only_* filters is, then we'll add it.
-        # Otherwise, when include is given, the only_* filters are taken into account for each
-        # include filter.
-        include_filters.append(_make_ls_filter(only_files=only_files, only_dirs=only_dirs))
-
-    if exclude:
-        if isinstance(exclude, Iterable) and not isinstance(exclude, (str, bytes)):
-            excludes = exclude
-        else:
-            excludes = [exclude]
-        exclude_filters.extend(_make_ls_filter(filterable=excl) for excl in excludes)
-
-    yield from _ls(
-        path, recursive=recursive, include_filters=include_filters, exclude_filters=exclude_filters
-    )
-
-
-def lsfiles(
-    path: StrPath = ".",
-    *,
-    include: t.Optional[LsFilter] = None,
-    exclude: t.Optional[LsFilter] = None,
-) -> t.Generator[Path, None, None]:
-    """
-    Yield only files in directory as ``Path`` objects.
-
-    See Also:
-        This function is not recursive and will only yield the top-level contents of a directory.
-        Use :func:`.walkfiles` to recursively yield all files from a directory.
-
-    Args:
-        path: Directory to list.
-        include: Include paths by filtering on a glob-pattern string, compiled regex, callable, or
-            iterable containing any of those types. Path is yielded if any of the filters return
-            ``True`` and path matches ``only_files`` or ``only_dirs`` if set. If path is a directory
-            and is not included, its contents are still eligible for inclusion if they match one of
-            the include filters.
-        exclude: Exclude paths by filtering on a glob-pattern string, compiled regex, callable, or
-            iterable containing any of those types. Path is not yielded if any of the filters return
-            ``True``. If the path is a directory and is excluded, then none of its contents will be
-            yielded.
-
-    Yields:
-        Files in directory.
-    """
-    yield from ls(path, only_files=True, include=include, exclude=exclude)
-
-
-def lsdirs(
-    path: StrPath = ".",
-    *,
-    include: t.Optional[LsFilter] = None,
-    exclude: t.Optional[LsFilter] = None,
-) -> t.Generator[Path, None, None]:
-    """
-    Yield only directories in directory as ``Path`` objects.
-
-    See Also:
-        This function is not recursive and will only yield the top-level contents of a directory.
-        Use :func:`.walkdirs` to recursively yield all directories from a directory.
-
-    Args:
-        path: Directory to list.
-        include: Include paths by filtering on a glob-pattern string, compiled regex, callable, or
-            iterable containing any of those types. Path is yielded if any of the filters return
-            ``True`` and path matches ``only_files`` or ``only_dirs`` if set. If path is a directory
-            and is not included, its contents are still eligible for inclusion if they match one of
-            the include filters.
-        exclude: Exclude paths by filtering on a glob-pattern string, compiled regex, callable, or
-            iterable containing any of those types. Path is not yielded if any of the filters return
-            ``True``. If the path is a directory and is excluded, then none of its contents will be
-            yielded.
-
-    Yields:
-        Directories in directory.
-    """
-    yield from ls(path, only_dirs=True, include=include, exclude=exclude)
 
 
 def _ls(
@@ -256,6 +177,127 @@ def _make_ls_filterable_fn(filterable: LsFilterable) -> LsFilterFn:
     return _ls_filterable_fn
 
 
+@contextmanager
+def cd(path: StrPath) -> t.Iterator[None]:
+    """
+    Context manager that changes the working directory on enter and restores it on exit.
+
+    Args:
+        path: Directory to change to.
+    """
+    orig_cwd = os.getcwd()
+
+    if path:
+        os.chdir(path)
+
+    try:
+        yield
+    finally:
+        if path:
+            os.chdir(orig_cwd)
+
+
+def cwd() -> Path:
+    """Return current working directory as ``Path`` object."""
+    return Path.cwd()
+
+
+def homedir():
+    """Return current user's home directory as ``Path`` object."""
+    return Path.home()
+
+
+def ls(
+    path: StrPath = ".",
+    *,
+    recursive: bool = False,
+    only_files: bool = False,
+    only_dirs: bool = False,
+    include: t.Optional[LsFilter] = None,
+    exclude: t.Optional[LsFilter] = None,
+) -> Ls:
+    """
+    Return iterable that lists directory contents as ``Path`` objects.
+
+    Args:
+        path: Directory to list.
+        recursive: Whether to recurse into subdirectories. Defaults to ``False``.
+        only_files: Limit results to files only. Mutually exclusive with ``only_dirs``.
+        only_dirs: Limit results to directories only. Mutually exclusive with ``only_files``.
+        include: Include paths by filtering on a glob-pattern string, compiled regex, callable, or
+            iterable containing any of those types. Path is included if any of the filters return
+            ``True`` and path matches ``only_files`` or ``only_dirs`` (if set). If path is a
+            directory and is not included, its contents are still eligible for inclusion if they
+            match one of the include filters.
+        exclude: Exclude paths by filtering on a glob-pattern string, compiled regex, callable, or
+            iterable containing any of those types. Path is not yielded if any of the filters return
+            ``True``. If the path is a directory and is excluded, then all of its contents will be
+            excluded.
+    """
+    return Ls(
+        path,
+        recursive=recursive,
+        only_files=only_files,
+        only_dirs=only_dirs,
+        include=include,
+        exclude=exclude,
+    )
+
+
+def lsfiles(
+    path: StrPath = ".",
+    *,
+    include: t.Optional[LsFilter] = None,
+    exclude: t.Optional[LsFilter] = None,
+) -> Ls:
+    """
+    Return iterable that only lists files in directory as ``Path`` objects.
+
+    See Also:
+        This function is not recursive and will only yield the top-level contents of a directory.
+        Use :func:`.walkfiles` to recursively yield all files from a directory.
+
+    Args:
+        path: Directory to list.
+        include: Include paths by filtering on a glob-pattern string, compiled regex, callable, or
+            iterable containing any of those types. Path is included if any of the filters return
+            ``True``. If path is a directory and is not included, its contents are still eligible
+            for inclusion if they match one of the include filters.
+        exclude: Exclude paths by filtering on a glob-pattern string, compiled regex, callable, or
+            iterable containing any of those types. Path is not yielded if any of the filters return
+            ``True``. If the path is a directory and is excluded, then all of its contents will be
+            excluded.
+    """
+    return ls(path, only_files=True, include=include, exclude=exclude)
+
+
+def lsdirs(
+    path: StrPath = ".",
+    *,
+    include: t.Optional[LsFilter] = None,
+    exclude: t.Optional[LsFilter] = None,
+) -> Ls:
+    """
+    Return iterable that only lists directories in directory as ``Path`` objects.
+
+    See Also:
+        This function is not recursive and will only yield the top-level contents of a directory.
+        Use :func:`.walkdirs` to recursively yield all directories from a directory.
+
+    Args:
+        path: Directory to list.
+        include: Include paths by filtering on a glob-pattern string, compiled regex, callable, or
+            iterable containing any of those types. Path is included if any of the filters return
+            ``True``. If path is a directory and is not included, its contents are still eligible
+            for inclusion if they match one of the include filters.
+        exclude: Exclude paths by filtering on a glob-pattern string, compiled regex, callable, or
+            iterable containing any of those types. Path is not yielded if any of the filters return
+            ``True``. If the path is a directory and is excluded, then all of its contents will be
+            excluded.
+    """
+    return ls(path, only_dirs=True, include=include, exclude=exclude)
+
+
 def reljoin(*paths: StrPath) -> str:
     """
     Like ``os.path.join`` except that all paths are treated as relative to the previous one so that
@@ -276,32 +318,29 @@ def walk(
     only_dirs: bool = False,
     include: t.Optional[LsFilter] = None,
     exclude: t.Optional[LsFilter] = None,
-) -> t.Generator[Path, None, None]:
+) -> Ls:
     """
-    Recursively yield all directory contents as ``Path`` objects.
+    Return iterable that recursively lists all directory contents as ``Path`` objects.
 
     See Also:
-        This function is recursive and will yield all contents of a directory. Use :func:`.ls` to
-        yield only the top-level contents of a directory.
+        This function is recursive and will list all contents of a directory. Use :func:`.ls` to
+        list only the top-level contents of a directory.
 
     Args:
         path: Directory to walk.
         only_files: Limit results to files only. Mutually exclusive with ``only_dirs``.
         only_dirs: Limit results to directories only. Mutually exclusive with ``only_files``.
         include: Include paths by filtering on a glob-pattern string, compiled regex, callable, or
-            iterable containing any of those types. Path is yielded if any of the filters return
-            ``True`` and path matches ``only_files`` or ``only_dirs`` if set. If path is a directory
-            and is not included, its contents are still eligible for inclusion if they match one of
-            the include filters.
+            iterable containing any of those types. Path is included if any of the filters return
+            ``True`` and path matches ``only_files`` or ``only_dirs`` (if set). If path is a
+            directory and is not included, its contents are still eligible for inclusion if they
+            match one of the include filters.
         exclude: Exclude paths by filtering on a glob-pattern string, compiled regex, callable, or
             iterable containing any of those types. Path is not yielded if any of the filters return
-            ``True``. If the path is a directory and is excluded, then none of its contents will be
-            yielded.
-
-    Yields:
-        Contents of directory.
+            ``True``. If the path is a directory and is excluded, then all of its contents will be
+            excluded.
     """
-    yield from ls(
+    return ls(
         path,
         recursive=True,
         only_files=only_files,
@@ -316,30 +355,26 @@ def walkfiles(
     *,
     include: t.Optional[LsFilter] = None,
     exclude: t.Optional[LsFilter] = None,
-) -> t.Generator[Path, None, None]:
+) -> Ls:
     """
-    Recursively yield only files in directory as ``Path`` objects.
+    Return iterable that recursively lists only files in directory as ``Path`` objects.
 
     See Also:
-        This function is recursive and will yield all files in a directory. Use :func:`.lsfiles` to
-        yield only the top-level files in a directory.
+        This function is recursive and will list all files in a directory. Use :func:`.lsfiles` to
+        list only the top-level files in a directory.
 
     Args:
         path: Directory to walk.
         include: Include paths by filtering on a glob-pattern string, compiled regex, callable, or
-            iterable containing any of those types. Path is yielded if any of the filters return
-            ``True`` and path matches ``only_files`` or ``only_dirs`` if set. If path is a directory
-            and is not included, its contents are still eligible for inclusion if they match one of
-            the include filters.
+            iterable containing any of those types. Path is included if any of the filters return
+            ``True``. If path is a directory and is not included, its contents are still eligible
+            for inclusion if they match one of the include filters.
         exclude: Exclude paths by filtering on a glob-pattern string, compiled regex, callable, or
             iterable containing any of those types. Path is not yielded if any of the filters return
-            ``True``. If the path is a directory and is excluded, then none of its contents will be
-            yielded.
-
-    Yields:
-        Files in directory.
+            ``True``. If the path is a directory and is excluded, then all of its contents will be
+            excluded.
     """
-    yield from walk(path, only_files=True, include=include, exclude=exclude)
+    return walk(path, only_files=True, include=include, exclude=exclude)
 
 
 def walkdirs(
@@ -347,27 +382,23 @@ def walkdirs(
     *,
     include: t.Optional[LsFilter] = None,
     exclude: t.Optional[LsFilter] = None,
-) -> t.Generator[Path, None, None]:
+) -> Ls:
     """
-    Recursively yield only directories in directory as ``Path`` objects.
+    Return iterable that recursively lists only directories in directory as ``Path`` objects.
 
     See Also:
-        This function is recursive and will yield all directories in a directory. Use
-        :func:`.lsfiles` to yield only the top-level directories in a directory.
+        This function is recursive and will list all directories in a directory. Use
+        :func:`.lsfiles` to list only the top-level directories in a directory.
 
     Args:
         path: Directory to walk.
         include: Include paths by filtering on a glob-pattern string, compiled regex, callable, or
-            iterable containing any of those types. Path is yielded if any of the filters return
-            ``True`` and path matches ``only_files`` or ``only_dirs`` if set. If path is a directory
-            and is not included, its contents are still eligible for inclusion if they match one of
-            the include filters.
+            iterable containing any of those types. Path is included if any of the filters return
+            ``True``. If path is a directory and is not included, its contents are still eligible
+            for inclusion if they match one of the include filters.
         exclude: Exclude paths by filtering on a glob-pattern string, compiled regex, callable, or
             iterable containing any of those types. Path is not yielded if any of the filters return
-            ``True``. If the path is a directory and is excluded, then none of its contents will be
-            yielded.
-
-    Yields:
-        Directories in directory.
+            ``True``. If the path is a directory and is excluded, then all of its contents will be
+            excluded.
     """
-    yield from walk(path, only_dirs=True, include=include, exclude=exclude)
+    return walk(path, only_dirs=True, include=include, exclude=exclude)

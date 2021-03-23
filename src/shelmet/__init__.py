@@ -38,4 +38,4 @@ from .filesystem import (
     touch,
     umask,
 )
-from .path import cd, cwd, homedir, ls, lsdirs, lsfiles, reljoin, walk, walkdirs, walkfiles
+from .path import Ls, cd, cwd, homedir, ls, lsdirs, lsfiles, reljoin, walk, walkdirs, walkfiles

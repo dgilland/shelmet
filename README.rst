@@ -128,7 +128,7 @@ Perform file system operations:
         sh.cp("2.txt", "22.txt")
 
         # List top-level directory contents.
-        # NOTE: sh.ls() and its siblings are generators.
+        # NOTE: sh.ls() and its siblings return iterables.
         list(sh.ls())
 
         # Limit to files.
@@ -143,7 +143,7 @@ Perform file system operations:
         sh.rm("11.txt", "22.txt", "3.txt")
 
     # Recursively walk current directory.
-    # NOTE: sh.walk() and its siblings are generators.
+    # NOTE: sh.walk() and its siblings return iterables.
     list(sh.walk())
 
     # Or just a specified directory.

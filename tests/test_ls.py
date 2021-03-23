@@ -306,6 +306,19 @@ def test_ls__does_not_recurse_into_excluded_dirs(tmp_path: Path):
     assert contents == expected_contents
 
 
+@parametrize(
+    "path, kwargs, expected",
+    [
+        param(".", {}, "Ls(path='.', recursive=False)"),
+        param("/foo/bar/baz", {}, "Ls(path='/foo/bar/baz', recursive=False)"),
+        param(".", {"recursive": True}, "Ls(path='.', recursive=True)"),
+    ],
+)
+def test_ls__has_repr(path, kwargs, expected):
+    listing = sh.ls(path, **kwargs)
+    assert repr(listing) == expected
+
+
 def test_ls__raises_when_both_only_files_and_only_dirs_are_true():
     with pytest.raises(ValueError):
         list(sh.ls(only_files=True, only_dirs=True))
