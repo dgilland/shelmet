@@ -9,7 +9,7 @@ import typing as t
 import zipfile
 
 from .fileio import atomicfile
-from .path import walk
+from .path import Ls, walk
 from .types import StrPath
 
 
@@ -73,10 +73,15 @@ class BaseArchive(ABC):
         """Add path to the archive non-recursively."""
         pass  # pragma: no cover
 
-    def archive(self, *paths: StrPath) -> None:
+    def archive(self, *paths: t.Union[StrPath, Ls]) -> None:
         """Create the archive that contains the given source paths."""
         # The archive contents will be relative to the common path shared by all source paths.
-        absolute_paths = [Path(path).absolute() for path in paths]
+        absolute_paths: t.List[Path] = []
+        for path in paths:
+            if isinstance(path, Ls):
+                path = path.path
+            absolute_paths.append(Path(path).absolute())
+
         common_path = Path(os.path.commonpath(absolute_paths)).parent
 
         for path in absolute_paths:
@@ -225,7 +230,7 @@ EXTENSION_ARCHIVES: t.Dict[str, t.Type[BaseArchive]] = {
 }
 
 
-def archive(file: StrPath, *paths: StrPath, ext: str = "") -> None:
+def archive(file: StrPath, *paths: t.Union[StrPath, Ls], ext: str = "") -> None:
     """
     Create an archive from the given source paths.
 

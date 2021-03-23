@@ -232,6 +232,90 @@ def test_archive__archives_multiple_sources(
     assert is_same_dir(src_dir.path, extracted_src_path)
 
 
+@parametrize(
+    "source",
+    [
+        param(
+            Dir(
+                "root",
+                Dir(
+                    "a",
+                    Dir(
+                        "aa",
+                        Dir("aaa", File("aaa1.txt", text="aaa1"), Dir("aaaa")),
+                        File("aa1.txt", text="aa1"),
+                    ),
+                    File("a1.txt", text="a1"),
+                    File("a2.txt", text="a2"),
+                ),
+                Dir("b"),
+                Dir("c"),
+                Dir("d"),
+                File("1.txt", text="1"),
+                File("2.txt", text="2"),
+                File("3.txt", text="3"),
+            ),
+        ),
+    ],
+)
+def test_archive__archives_from_ls_source(tmp_path: Path, arc_ext: str, source: Dir):
+    source = source.clone()
+    src_dir = Dir(tmp_path / "src", source)
+    src_dir.mkdir()
+
+    archive_file = tmp_path / f"archive{arc_ext}"
+    sh.archive(archive_file, sh.walk(source.path))
+
+    assert archive_file.is_file()
+
+    dst_path = tmp_path / "dst"
+    extract_archive(archive_file, dst_path)
+
+    assert dst_path.is_dir()
+    assert is_same_dir(src_dir.path, dst_path)
+
+
+@parametrize(
+    "sources",
+    [
+        param(
+            [
+                Dir(
+                    "a",
+                    Dir(
+                        "aa",
+                        Dir("aaa", File("aaa1.txt", text="aaa1"), Dir("aaaa")),
+                        File("aa1.txt", text="aa1"),
+                    ),
+                    File("a1.txt", text="a1"),
+                    File("a2.txt", text="a2"),
+                ),
+                Dir("b"),
+                Dir("c"),
+                Dir("d"),
+            ],
+        ),
+    ],
+)
+def test_archive__archives_multiple_ls_sources(tmp_path: Path, arc_ext: str, sources: t.List[Dir]):
+    sources = [source.clone() for source in sources]
+    src_dir = Dir(tmp_path / "src", *sources)
+    src_dir.mkdir()
+
+    archive_file = tmp_path / f"archive{arc_ext}"
+    sh.archive(archive_file, *(sh.walk(dir.path) for dir in sources))
+
+    assert archive_file.is_file()
+
+    dst_path = tmp_path / "dst"
+    extracted_src_path = dst_path / src_dir.path.name
+    extract_archive(archive_file, dst_path)
+
+    assert dst_path.is_dir()
+    assert extracted_src_path.is_dir()
+    assert is_same_dir(src_dir.path, extracted_src_path)
+
+
 def test_archive__archives_with_explicit_extension_format(tmp_path: Path, arc_ext: str):
     sources = [Dir("a", Dir("b"), File("1.txt", text="1"), File("2.txt", text="2"))]
     src_dir = Dir(tmp_path / "src", *sources)
