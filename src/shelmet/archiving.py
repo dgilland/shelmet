@@ -268,7 +268,7 @@ def archive(file: StrPath, *paths: t.Union[StrPath, Ls], ext: str = "") -> None:
             extension.
     """
     file = Path(file)
-    archive_class = _get_archive_class_for_file(file, ext)
+    archive_class = _get_archive_class_or_raise(file, ext)
 
     # Use atomicfile so that archive is only created at location if there are no errors while
     # archiving all paths.
@@ -422,7 +422,7 @@ def lsarchive(file: StrPath, ext: str = "") -> t.List[Path]:
             extension.
     """
     file = Path(file)
-    archive_class = _get_archive_class_for_file(file, ext)
+    archive_class = _get_archive_class_or_raise(file, ext)
     with archive_class.open(file, "r") as archive_file:
         return [Path(item) for item in archive_file.list()]
 
@@ -464,7 +464,7 @@ def unarchive(file: StrPath, dst: StrPath = ".", *, ext: str = "", trusted: bool
             as originating from a trusted source.
     """
     file = Path(file)
-    archive_class = _get_archive_class_for_file(file, ext)
+    archive_class = _get_archive_class_or_raise(file, ext)
 
     with archive_class.open(file, "r") as archive_file:
         try:
@@ -477,11 +477,25 @@ def unarchive(file: StrPath, dst: StrPath = ".", *, ext: str = "", trusted: bool
             ) from exc
 
 
-def _get_archive_class_for_file(file: Path, ext: str = "") -> t.Type[BaseArchive]:
-    """Return the :class:`BaseArchive` that should be used to handle an archive file."""
-    if not ext:
-        ext = "".join(file.suffixes)
-    archive_class = EXTENSION_ARCHIVES.get(ext)
+def _get_archive_class_or_raise(file: Path, ext: str = "") -> t.Type[BaseArchive]:
+    """Return the :class:`BaseArchive` that should be used to handle an archive file or raise if
+    none found."""
+    archive_class = _get_archive_class(file, ext=ext)
     if not archive_class:
         raise ArchiveError(f"Archive format not supported: {ext!r}")
+    return archive_class
+
+
+def _get_archive_class(file: Path, ext: str = "") -> t.Optional[t.Type[BaseArchive]]:
+    """Return the :class:`BaseArchive` that should be used to handle an archive file."""
+    archive_class = EXTENSION_ARCHIVES.get(ext)
+
+    if not archive_class:
+        archive_class = EXTENSION_ARCHIVES.get("".join(file.suffixes))
+
+    if not archive_class:
+        archive_class = next(
+            (a for e, a in EXTENSION_ARCHIVES.items() if file.name.endswith(e)), None
+        )
+
     return archive_class

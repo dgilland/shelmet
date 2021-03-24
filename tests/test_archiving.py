@@ -46,7 +46,14 @@ ZIP_EXTENSIONS = [
 
 def extract_archive(archive_file: Path, dst: Path, ext: str = "") -> None:
     if not ext:
-        ext = "".join(archive_file.suffixes)
+        ext = next(
+            (
+                e
+                for e in list(TAR_EXTENSIONS) + list(ZIP_EXTENSIONS)
+                if archive_file.name.endswith(e)
+            ),
+            None,
+        )
 
     if ext in TAR_EXTENSIONS:
         _extract_tar(archive_file, dst, ext=ext)
@@ -288,6 +295,12 @@ def test_archive__archives_path_sources(
 def test_archive__archives_ls_sources(tmp_path: Path, arc_ext: str, sources: t.List[Dir]):
     archive_file = tmp_path / f"archive{arc_ext}"
     _test_archive(tmp_path, archive_file, *sources, iteratee=sh.walk)
+
+
+def test_archive__allows_extra_leading_file_extension_suffixes(tmp_path: Path, arc_ext: str):
+    source = Dir("a", Dir("b"), File("1.txt", text="1"), File("2.txt", text="2"))
+    archive_file = tmp_path / f"archive.foo.bar.baz{arc_ext}"
+    _test_archive(tmp_path, archive_file, source)
 
 
 def test_archive__archives_with_explicit_extension_format(tmp_path: Path, arc_ext: str):
