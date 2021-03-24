@@ -16,10 +16,19 @@ from .path import Ls, walk
 from .types import StrPath
 
 
+try:
+    import zlib
+except ImportError:  # pragma: no cover
+    zlib = None  # type: ignore
+
+
 # Use same default tar format for older Python versions for consistency (default was changed to PAX
 # in 3.8).
 # NOTE: This format is only used for writing and doesn't affect reading archives in other formats.
 DEFAULT_TAR_FORMAT = tarfile.PAX_FORMAT
+
+# Use ZIP_DEFLATED as default zipfile compression if available.
+DEFAULT_ZIP_COMPRESSION = zipfile.ZIP_DEFLATED if zlib else zipfile.ZIP_STORED
 
 
 class ArchiveError(Exception):
@@ -124,7 +133,7 @@ class ZipArchive(BaseArchive):
     @classmethod
     def open(cls, file: t.Union[StrPath, t.BinaryIO], mode: str = "r") -> "ZipArchive":
         """Open an archive file."""
-        return cls(zipfile.ZipFile(file, mode))
+        return cls(zipfile.ZipFile(file, mode, compression=DEFAULT_ZIP_COMPRESSION))
 
     def close(self):
         """Close the archive file."""
@@ -242,18 +251,23 @@ def archive(file: StrPath, *paths: t.Union[StrPath, Ls], ext: str = "") -> None:
     of all the sources and removing it from each source path so that the archive paths are all
     relative to the shared parent path of all sources.
 
-    Archives can be created in either zip or tar format with compression. The tar compressions
-    available are the same as what is supported by ``tarfile`` which are gzipped, bzip2, and lzma.
+    Archives can be created in either the tar or zip format. A tar archive can use the same
+    compressions that are available from ``tarfile`` which are gzipped, bzip2, and lzma. A zip
+    archive will use deflate compression if the ``zlib`` library is available. Otherwise, it will
+    fallback to being uncompressed.
 
     The archive format is interfered from the file extension of `file` by default, but can be
     overridden using the `ext` argument (e.g. ``ext=".tgz"`` for a gzipped tarball).
 
-    The supported tar extensions are:
+    The supported tar-based extensions are:
 
     - ``.tar``
     - ``.tar.gz``, ``.tgz``, ``.taz``
     - ``.tar.bz2``, ``.tb2``, ``.tbz``, ``.tbz2``, ``.tz2``
     - ``.tar.xz``, ``.txz``
+
+    The supported zip-based extensions are:
+
     - ``.zip``,
     - ``.egg``, ``.jar``
     - ``.docx``, ``pptx``, ``xlsx``
