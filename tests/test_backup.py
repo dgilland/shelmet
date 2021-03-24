@@ -8,7 +8,7 @@ from pytest import param
 
 import shelmet as sh
 
-from .utils import Dir, File, is_same_dir, is_same_file
+from .utils import ARCHIVE_EXTENSIONS, Dir, File, is_same_dir, is_same_file
 
 
 parametrize = pytest.mark.parametrize
@@ -36,6 +36,11 @@ def src_file(tmp_path: Path) -> Path:
     return src_file
 
 
+@pytest.fixture(params=ARCHIVE_EXTENSIONS)
+def arc_ext(request) -> str:
+    return request.param
+
+
 def test_backup__backs_up_file(src_file: Path):
     backup_file = sh.backup(src_file)
     assert backup_file != src_file
@@ -54,7 +59,26 @@ def test_backup__backs_up_directory(tmp_path: Path):
     src_dir.mkdir()
 
     backup_dir = sh.backup(src_dir.path)
+    assert backup_dir.is_dir()
     assert is_same_dir(src_dir.path, backup_dir)
+
+
+def test_backup__backs_up_directory_as_archive(tmp_path: Path, arc_ext: str):
+    src_dir = Dir(
+        tmp_path / "src",
+        File("1.txt", text="1"),
+        File("2.txt", text="2"),
+        File("a/a1.txt", text="a1"),
+        File("a/a2.txt", text="a2"),
+    )
+    src_dir.mkdir()
+
+    backup_archive = sh.backup(src_dir.path, ext=arc_ext)
+    assert backup_archive.is_file()
+
+    dst_path = tmp_path / "dst"
+    sh.unarchive(backup_archive, dst_path)
+    assert is_same_dir(src_dir.path, dst_path / "src")
 
 
 def test_backup__customizes_backup_parent_directory(tmp_path: Path, src_file: Path):

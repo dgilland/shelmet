@@ -13,6 +13,34 @@ except ImportError:  # pragma: no cover
 
 USES_FCNTL_FULLSYNC = hasattr(fcntl, "F_FULLFSYNC")
 
+TAR_COMPRESSIONS = {
+    ".tar": "",
+    ".tar.gz": "gz",
+    ".tgz": "gz",
+    ".taz": "gz",
+    ".tar.bz2": "bz2",
+    ".tb2": "bz2",
+    ".tbz": "bz2",
+    ".tbz2": "bz2",
+    ".tz2": "bz2",
+    ".tar.xz": "xz",
+    ".txz": "xz",
+}
+TAR_EXTENSIONS = list(TAR_COMPRESSIONS.keys())
+ZIP_EXTENSIONS = [
+    ".docx",
+    ".egg",
+    ".jar",
+    ".odg",
+    ".odp",
+    ".ods",
+    ".odt",
+    ".pptx",
+    ".xlsx",
+    ".zip",
+]
+ARCHIVE_EXTENSIONS = TAR_EXTENSIONS + ZIP_EXTENSIONS
+
 
 class File:
     def __init__(self, path: t.Union[Path, str], text: t.Optional[str] = None, size: int = 0):

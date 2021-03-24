@@ -197,13 +197,23 @@ Backup files:
 
 .. code-block:: python
 
+    # Create backup as copy of file.
     backup_file = sh.backup("test.txt")
-    print(backup_file)                                     # test.txt.2021-02-24_16-19-20-276491~
+    print(backup_file)                                     # test.txt.2021-02-24T16:19:20.276491~
     sh.backup("test.txt", utc=True)                        # test.txt.2021-02-24T11:19:20.276491Z~
     sh.backup("test.txt", epoch=True)                      # test.txt.1614878783.56201
     sh.backup("test.txt", suffix=".bak")                   # test.txt.2021-02-24T16:19:20.276491.bak
     sh.backup("test.txt", suffix=".bak", timestamp=False)  # test.txt.bak
     sh.backup("test.txt", prefix="BACKUP_", suffix="")     # BACKUP_test.txt.2021-02-24T16:19:20.276491
+
+    # Create backup as copy of directory.
+    sh.backup("path/to/dir")                              # path/to/dir.2021-02-24T16:19:20.276491~
+
+    # Create backup as archive of file or directory.
+    sh.backup("path/to/dir", ext=".tar.gz")               # path/to/dir.2021-02-24T16:19:20.276491.tar.gz
+    sh.backup("path/to/dir", ext=".tar.bz2")              # path/to/dir.2021-02-24T16:19:20.276491.tar.bz2
+    sh.backup("path/to/dir", ext=".tar.xz")               # path/to/dir.2021-02-24T16:19:20.276491.tar.xz
+    sh.backup("path/to/dir", ext=".zip")                  # path/to/dir.2021-02-24T16:19:20.276491.zip
 
     from functools import partial
     import itertools

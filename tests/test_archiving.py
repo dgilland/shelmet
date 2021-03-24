@@ -10,38 +10,18 @@ from pytest import param
 
 import shelmet as sh
 
-from .utils import Dir, File, is_same_dir
+from .utils import (
+    ARCHIVE_EXTENSIONS,
+    TAR_COMPRESSIONS,
+    TAR_EXTENSIONS,
+    ZIP_EXTENSIONS,
+    Dir,
+    File,
+    is_same_dir,
+)
 
 
 parametrize = pytest.mark.parametrize
-
-
-TAR_COMPRESSIONS = {
-    ".tar": "",
-    ".tar.gz": "gz",
-    ".tgz": "gz",
-    ".taz": "gz",
-    ".tar.bz2": "bz2",
-    ".tb2": "bz2",
-    ".tbz": "bz2",
-    ".tbz2": "bz2",
-    ".tz2": "bz2",
-    ".tar.xz": "xz",
-    ".txz": "xz",
-}
-TAR_EXTENSIONS = list(TAR_COMPRESSIONS.keys())
-ZIP_EXTENSIONS = [
-    ".docx",
-    ".egg",
-    ".jar",
-    ".odg",
-    ".odp",
-    ".ods",
-    ".odt",
-    ".pptx",
-    ".xlsx",
-    ".zip",
-]
 
 
 def extract_archive(archive_file: Path, dst: Path, ext: str = "") -> None:
@@ -52,7 +32,7 @@ def extract_archive(archive_file: Path, dst: Path, ext: str = "") -> None:
                 for e in list(TAR_EXTENSIONS) + list(ZIP_EXTENSIONS)
                 if archive_file.name.endswith(e)
             ),
-            None,
+            "",
         )
 
     if ext in TAR_EXTENSIONS:
@@ -185,7 +165,7 @@ def _test_unarchive(tmp_path: Path, archive_file: Path, source: t.Union[File, Di
     assert is_same_dir(src_dir.path, dst_path / "src")
 
 
-@pytest.fixture(params=TAR_EXTENSIONS + ZIP_EXTENSIONS)
+@pytest.fixture(params=ARCHIVE_EXTENSIONS)
 def arc_ext(request) -> str:
     return request.param
 

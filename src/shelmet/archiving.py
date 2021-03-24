@@ -290,15 +290,16 @@ def backup(
     epoch: bool = False,
     prefix: str = "",
     suffix: str = "~",
+    ext: t.Optional[str] = None,
     hidden: bool = False,
     overwrite: bool = False,
     dir: t.Optional[StrPath] = None,
     namer: t.Optional[t.Callable[[Path], StrPath]] = None,
 ) -> Path:
     """
-    Create a backup of a file or directory.
+    Create a backup of a file or directory as either a direct copy or an archive file.
 
-    The format of the backup name is ``{prefix}{src}.{timestamp}{suffix}``.
+    The format of the backup name is ``{prefix}{src}.{timestamp}{suffix|ext}``.
 
     By default, the backup will be created in the same parent directory as the source and be named
     like ``"src.YYYY-MM-DDThh:mm:ss.ffffff~"``, where the timestamp is the current local time.
@@ -307,6 +308,9 @@ def backup(
 
     If `epoch` is ``True``, then the timestamp will be the Unix time as returned by
     ``time.time()`` instead of the strftime format.
+
+    If `ext` is given, the backup created will be an archive file. The extension must be one that
+    :func:`archive` supports. The `suffix` value will be ignored and `ext` used in its place.
 
     If `hidden` is ``True``, then a ``"."`` will be prepended to the `prefix`. It won't be added if
     `prefix` already starts with a ``"."``.
@@ -329,6 +333,10 @@ def backup(
             `timestamp`.
         prefix: Name prefix to prepend to the backup.
         suffix: Name suffix to append to the backup.
+        ext: Create an archive of `src` as the backup instead of a direct copy using the given
+            archive extension. The extension must be supported by :func:`archive` or an exception
+            will be raised. When given the `suffix` value is ignored and `ext` will be used in its
+            place.
         hidden: Whether to ensure that the backup location is a hidden file or directory.
         overwrite: Whether to overwrite an existing file or directory when backing up.
         dir: Set the parent directory of the backup. Defaults to ``None`` which will use the parent
@@ -346,6 +354,9 @@ def backup(
         )
 
     src = Path(src).resolve()
+
+    if ext:
+        suffix = ext
 
     if namer:
         dst = Path(namer(src)).resolve()
@@ -367,7 +378,10 @@ def backup(
     if not overwrite and dst.exists():
         raise FileExistsError(errno.EEXIST, f"Backup destination already exists: {dst}")
 
-    cp(src, dst)
+    if ext:
+        archive(dst, src, ext=ext)
+    else:
+        cp(src, dst)
 
     return dst
 
@@ -384,7 +398,7 @@ def _backup_namer(
     dir: t.Optional[StrPath] = None,
 ) -> Path:
     if not dir:
-        dir = src.parent
+        dir = src.parent.resolve()
     else:
         dir = Path(dir).resolve()
 
