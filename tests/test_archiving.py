@@ -123,6 +123,13 @@ def _create_unsafe_zip(archive_file: Path, src: Path, parent_path: Path) -> None
                 archive.writestr(member, data=data)
 
 
+def create_archive_source(tmp_path: Path, *sources: t.Union[Dir, File]) -> Dir:
+    sources = tuple(source.clone() for source in sources)
+    src_dir = Dir(tmp_path / "src", *sources)
+    src_dir.mkdir()
+    return src_dir
+
+
 def _test_archive(
     tmp_path: Path,
     archive_file: Path,
@@ -371,6 +378,75 @@ def test_archive__archives_with_explicit_extension_format(tmp_path: Path, arc_ex
     source = Dir("a", Dir("b"), File("1.txt", text="1"), File("2.txt", text="2"))
     archive_file = tmp_path / "archive"
     _test_archive(tmp_path, archive_file, source, ext=arc_ext)
+
+
+@parametrize(
+    "source, root, expected_listing",
+    [
+        param(
+            Dir("a", File("1.txt", text="1"), File("2.txt", text="2"), File("3.txt", text="3")),
+            Path("a"),
+            {Path("1.txt"), Path("2.txt"), Path("3.txt")},
+        )
+    ],
+)
+def test_archive__archives_to_custom_root_path(
+    tmp_path: Path,
+    arc_ext: str,
+    source: t.Union[File, Dir],
+    root: Path,
+    expected_listing: t.Set[Path],
+):
+    src_dir = create_archive_source(tmp_path, source)
+    root = src_dir.path / root
+
+    archive_file = tmp_path / f"archive{arc_ext}"
+    sh.archive(archive_file, *(item.path for item in src_dir.items), root=root)
+    assert archive_file.is_file()
+
+    listing = set(sh.lsarchive(archive_file))
+    assert listing == expected_listing
+
+
+@parametrize(
+    "source, root, expected_listing",
+    [
+        param(
+            Dir("a", File("1.txt", text="1"), File("2.txt", text="2"), File("3.txt", text="3")),
+            None,
+            {Path("a"), Path("a/1.txt"), Path("a/2.txt"), Path("a/3.txt")},
+        ),
+        param(
+            Dir("a", File("1.txt", text="1"), File("2.txt", text="2"), File("3.txt", text="3")),
+            Path("a"),
+            {Path("1.txt"), Path("2.txt"), Path("3.txt")},
+        ),
+    ],
+)
+def test_archive__archives_relative_paths(
+    tmp_path: Path,
+    arc_ext: str,
+    source: t.Union[File, Dir],
+    root: t.Optional[Path],
+    expected_listing: t.Set[Path],
+):
+    src_dir = create_archive_source(tmp_path, source)
+    archive_file = tmp_path / f"archive{arc_ext}"
+
+    with sh.cd(src_dir.path):
+        items = [item.path.relative_to(src_dir.path) for item in src_dir.items]
+        sh.archive(archive_file, *items, root=root)
+        assert archive_file.is_file()
+
+        listing = set(sh.lsarchive(archive_file))
+        assert listing == expected_listing
+
+
+def test_archive__raises_when_sources_are_not_subpaths_of_root_path(tmp_path: Path, arc_ext: str):
+    archive_file = tmp_path / f"archive{arc_ext}"
+    with pytest.raises(sh.ArchiveError) as exc_info:
+        sh.archive(archive_file, tmp_path, root="bad-root")
+    assert "paths must be a subpath of the root" in str(exc_info.value)
 
 
 def test_archive__raises_when_file_extension_not_supported(tmp_path: Path):

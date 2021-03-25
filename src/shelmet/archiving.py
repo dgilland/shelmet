@@ -30,6 +30,9 @@ DEFAULT_TAR_FORMAT = tarfile.PAX_FORMAT
 # Use ZIP_DEFLATED as default zipfile compression if available.
 DEFAULT_ZIP_COMPRESSION = zipfile.ZIP_DEFLATED if zlib else zipfile.ZIP_STORED
 
+# Archive names to exclude when adding to an archive.
+EXCLUDE_ARCNAMES = {".", ".."}
+
 
 class ArchiveError(Exception):
     """General archive error."""
@@ -37,6 +40,32 @@ class ArchiveError(Exception):
     def __init__(self, *args: t.Any, orig_exc: t.Optional[Exception] = None):
         super().__init__(*args)
         self.orig_exc = orig_exc
+
+
+class ArchiveSource:
+    """Iterable representation of a path that should be added to an archive."""
+
+    def __init__(self, path: t.Union[StrPath, Ls]):
+        abspath = Path(path).resolve()
+        subpaths: t.Optional[Ls] = None
+
+        if isinstance(path, Ls):
+            subpaths = path
+        elif abspath.is_dir():
+            subpaths = walk(path)
+
+        self.path = abspath
+        self.subpaths = subpaths
+
+    def __iter__(self) -> t.Iterator[Path]:
+        """Yield contents of archive source including the base path and its subpaths."""
+        yield self.path
+
+        if not self.subpaths:
+            return
+
+        for subpath in self.subpaths:
+            yield Path(subpath).absolute()
 
 
 class BaseArchive(ABC):
@@ -85,29 +114,28 @@ class BaseArchive(ABC):
         """Add path to the archive non-recursively."""
         pass  # pragma: no cover
 
-    def archive(self, *paths: t.Union[StrPath, Ls]) -> None:
+    def archive(self, *paths: t.Union[StrPath, Ls], root: t.Optional[StrPath] = None) -> None:
         """Create the archive that contains the given source paths."""
-        sources: t.List[t.Tuple[Path, t.Optional[Ls]]] = []
-        for path in paths:
-            absolute_path = Path(path).resolve()
-            iterpath: t.Optional[Ls] = None
+        sources = [ArchiveSource(path) for path in paths]
 
-            if isinstance(path, Ls):
-                iterpath = path
-            elif absolute_path.is_dir():
-                iterpath = walk(path)
+        if root:
+            root = Path(root).resolve()
+        else:
+            # The archive contents will be relative to the common path shared by all source paths.
+            root = Path(os.path.commonpath([src.path for src in sources])).parent
 
-            sources.append((absolute_path, iterpath))
-
-        common_path = Path(os.path.commonpath(absolute_paths)).parent
-
-        for path, iterpath in sources:
-            self.add(path, arcname=str(path.relative_to(common_path)))
-
-            if iterpath:
-                for subpath in iterpath:
-                    subpath = subpath.absolute()
-                    self.add(subpath, arcname=str(subpath.relative_to(common_path)))
+        for source in sources:
+            for path in source:
+                try:
+                    arcname = str(path.relative_to(root))
+                except ValueError:
+                    raise ArchiveError(
+                        f"archive: Source paths must be a subpath of the root archive path."
+                        f" '{path}' is not in the subpath of '{root}'"
+                    )
+                if arcname in EXCLUDE_ARCNAMES:
+                    continue
+                self.add(path, arcname=arcname)
 
     def unarchive(self, dst: StrPath, *, trusted: bool = False) -> None:
         """Extract the archive to the destination path."""
@@ -248,7 +276,9 @@ EXTENSION_ARCHIVES: t.Dict[str, t.Type[BaseArchive]] = {
 }
 
 
-def archive(file: StrPath, *paths: t.Union[StrPath, Ls], ext: str = "") -> None:
+def archive(
+    file: StrPath, *paths: t.Union[StrPath, Ls], root: t.Optional[StrPath] = None, ext: str = ""
+) -> None:
     """
     Create an archive from the given source paths.
 
@@ -283,6 +313,8 @@ def archive(file: StrPath, *paths: t.Union[StrPath, Ls], ext: str = "") -> None:
         file: Archive file path to create.
         *paths: Source paths (files and/or directories) to archive. Directories will be recursively
             added.
+        root: When given archive member paths will be relative to this root directory. The root path
+            must be a parent directory of all source paths, otherwise, an exception will be raised.
         ext: Specify the archive format to use by referencing the corresponding file extension
             (starting with a leading ".") instead of interfering the format from the `file`
             extension.
@@ -295,7 +327,7 @@ def archive(file: StrPath, *paths: t.Union[StrPath, Ls], ext: str = "") -> None:
     with atomicfile(file, "wb", skip_sync=True) as fp:
         with archive_class.open(fp, "w") as archive_file:  # type: ignore
             try:
-                archive_file.archive(*paths)
+                archive_file.archive(*paths, root=root)
             except Exception as exc:
                 raise ArchiveError(
                     f"archive: Failed to create archive '{file}' due to error: {exc}", orig_exc=exc
