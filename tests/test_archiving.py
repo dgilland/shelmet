@@ -129,14 +129,17 @@ def _test_archive(
     *sources: t.Union[Dir, File],
     iteratee: t.Callable[[Path], t.Union[str, Path, sh.Ls]] = lambda p: p,
     ext: str = "",
+    skip_extraction: bool = False,
 ):
     sources = tuple(source.clone() for source in sources)
     src_dir = Dir(tmp_path / "src", *sources)
     src_dir.mkdir()
 
     sh.archive(archive_file, *(iteratee(source.path) for source in sources), ext=ext)
-
     assert archive_file.is_file()
+
+    if skip_extraction:
+        return
 
     dst_path = tmp_path / "dst"
     if len(sources) > 1:
@@ -149,6 +152,19 @@ def _test_archive(
     assert dst_path.is_dir()
     assert extracted_src_path.is_dir()
     assert is_same_dir(src_dir.path, extracted_src_path)
+
+
+def _test_archive_listing(
+    tmp_path: Path,
+    archive_file: Path,
+    *sources: t.Union[Dir, File],
+    iteratee: t.Callable[[Path], t.Union[str, Path, sh.Ls]] = lambda p: p,
+    expected_listing: t.Set[str],
+):
+    _test_archive(tmp_path, archive_file, *sources, iteratee=iteratee, skip_extraction=True)
+    listing = set(sh.lsarchive(archive_file))
+    expected_paths = {Path(item) for item in expected_listing}
+    assert listing == expected_paths
 
 
 def _test_unarchive(tmp_path: Path, archive_file: Path, source: t.Union[File, Dir], ext: str = ""):
@@ -275,6 +291,92 @@ def test_archive__archives_path_sources(
 def test_archive__archives_ls_sources(tmp_path: Path, arc_ext: str, sources: t.List[Dir]):
     archive_file = tmp_path / f"archive{arc_ext}"
     _test_archive(tmp_path, archive_file, *sources, iteratee=sh.walk)
+
+
+@parametrize(
+    "sources, ls_func, expected_listing",
+    [
+        param(
+            [
+                Dir(
+                    "root",
+                    Dir(
+                        "a",
+                        Dir(
+                            "aa",
+                            Dir("aaa", File("aaa1.txt", text="aaa1"), Dir("aaaa")),
+                            File("aa1.txt", text="aa1"),
+                        ),
+                        File("a1.txt", text="a1"),
+                        File("a2.txt", text="a2"),
+                    ),
+                    Dir("b"),
+                    Dir("c"),
+                    Dir("d"),
+                    File("1.txt", text="1"),
+                    File("2.txt", text="2"),
+                    File("3.txt", text="3"),
+                ),
+            ],
+            sh.ls,
+            {
+                "root",
+                "root/a",
+                "root/b",
+                "root/c",
+                "root/d",
+                "root/1.txt",
+                "root/2.txt",
+                "root/3.txt",
+            },
+        ),
+        param(
+            [
+                Dir(
+                    "root",
+                    Dir(
+                        "a",
+                        Dir(
+                            "aa",
+                            Dir("aaa", File("aaa1.txt", text="aaa1"), Dir("aaaa")),
+                            File("aa1.txt", text="aa1"),
+                        ),
+                        File("a1.txt", text="a1"),
+                        File("a2.txt", text="a2"),
+                    ),
+                    Dir("b"),
+                    Dir("c"),
+                    Dir("d"),
+                    File("1.txt", text="1"),
+                    File("2.txt", text="2"),
+                    File("3.txt", text="3"),
+                ),
+            ],
+            sh.walkfiles,
+            {
+                "root",
+                "root/1.txt",
+                "root/2.txt",
+                "root/3.txt",
+                "root/a/a1.txt",
+                "root/a/a2.txt",
+                "root/a/aa/aa1.txt",
+                "root/a/aa/aaa/aaa1.txt",
+            },
+        ),
+    ],
+)
+def test_archive__archives_filtered_ls_sources(
+    tmp_path: Path,
+    arc_ext: str,
+    sources: t.List[Dir],
+    ls_func: t.Callable[[Path], sh.Ls],
+    expected_listing: t.Set[str],
+):
+    archive_file = tmp_path / f"archive{arc_ext}"
+    _test_archive_listing(
+        tmp_path, archive_file, *sources, iteratee=ls_func, expected_listing=expected_listing
+    )
 
 
 def test_archive__allows_extra_leading_file_extension_suffixes(tmp_path: Path, arc_ext: str):

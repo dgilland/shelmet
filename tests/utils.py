@@ -86,7 +86,7 @@ class Dir:
         )
 
     def clone(self) -> "Dir":
-        return self.__class__(self.path, *self.items)
+        return self.__class__(self.path, *(item.clone() for item in self.items))
 
     def mkdir(self) -> None:
         self.path.mkdir(parents=True, exist_ok=True)

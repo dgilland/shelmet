@@ -78,6 +78,13 @@ class Ls:
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(path={self.path!r}, recursive={self.recursive})"
 
+    def __str__(self) -> str:
+        """Return file system representation of path."""
+        return str(self.path)
+
+    # Make class PathLike for os.fspath compatibility.
+    __fspath__ = __str__
+
     def __iter__(self) -> t.Iterator[Path]:
         """Iterate over :attr:`path` and yield its contents."""
         yield from _ls(

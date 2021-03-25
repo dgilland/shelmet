@@ -87,20 +87,26 @@ class BaseArchive(ABC):
 
     def archive(self, *paths: t.Union[StrPath, Ls]) -> None:
         """Create the archive that contains the given source paths."""
-        # The archive contents will be relative to the common path shared by all source paths.
-        absolute_paths: t.List[Path] = []
+        sources: t.List[t.Tuple[Path, t.Optional[Ls]]] = []
         for path in paths:
+            absolute_path = Path(path).resolve()
+            iterpath: t.Optional[Ls] = None
+
             if isinstance(path, Ls):
-                path = path.path
-            absolute_paths.append(Path(path).absolute())
+                iterpath = path
+            elif absolute_path.is_dir():
+                iterpath = walk(path)
+
+            sources.append((absolute_path, iterpath))
 
         common_path = Path(os.path.commonpath(absolute_paths)).parent
 
-        for path in absolute_paths:
+        for path, iterpath in sources:
             self.add(path, arcname=str(path.relative_to(common_path)))
 
-            if path.is_dir():
-                for subpath in walk(path):
+            if iterpath:
+                for subpath in iterpath:
+                    subpath = subpath.absolute()
                     self.add(subpath, arcname=str(subpath.relative_to(common_path)))
 
     def unarchive(self, dst: StrPath, *, trusted: bool = False) -> None:
