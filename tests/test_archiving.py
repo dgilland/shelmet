@@ -131,18 +131,15 @@ def _test_archive(
     ext: str = "",
     skip_extraction: bool = False,
 ):
-    sources = tuple(source.clone() for source in sources)
-    src_dir = Dir(tmp_path / "src", *sources)
-    src_dir.mkdir()
-
-    sh.archive(archive_file, *(iteratee(source.path) for source in sources), ext=ext)
+    src_dir = create_archive_source(tmp_path, *sources)
+    sh.archive(archive_file, *(iteratee(source.path) for source in src_dir.items), ext=ext)
     assert archive_file.is_file()
 
     if skip_extraction:
         return
 
     dst_path = tmp_path / "dst"
-    if len(sources) > 1:
+    if len(src_dir.items) > 1:
         extracted_src_path = dst_path / src_dir.path.name
     else:
         extracted_src_path = dst_path
@@ -154,24 +151,8 @@ def _test_archive(
     assert is_same_dir(src_dir.path, extracted_src_path)
 
 
-def _test_archive_listing(
-    tmp_path: Path,
-    archive_file: Path,
-    *sources: t.Union[Dir, File],
-    iteratee: t.Callable[[Path], t.Union[str, Path, sh.Ls]] = lambda p: p,
-    expected_listing: t.Set[str],
-):
-    _test_archive(tmp_path, archive_file, *sources, iteratee=iteratee, skip_extraction=True)
-    listing = set(sh.lsarchive(archive_file))
-    expected_paths = {Path(item) for item in expected_listing}
-    assert listing == expected_paths
-
-
 def _test_unarchive(tmp_path: Path, archive_file: Path, source: t.Union[File, Dir], ext: str = ""):
-    source = source.clone()
-    src_dir = Dir(tmp_path / "src", source)
-    src_dir.mkdir()
-
+    src_dir = create_archive_source(tmp_path, source)
     create_archive(archive_file, src_dir.path, ext=ext)
 
     dst_path = tmp_path / "dst"
@@ -320,14 +301,14 @@ def test_archive__archives_ls_sources(tmp_path: Path, arc_ext: str, sources: t.L
             ],
             sh.ls,
             {
-                "root",
-                "root/a",
-                "root/b",
-                "root/c",
-                "root/d",
-                "root/1.txt",
-                "root/2.txt",
-                "root/3.txt",
+                Path("root"),
+                Path("root/a"),
+                Path("root/b"),
+                Path("root/c"),
+                Path("root/d"),
+                Path("root/1.txt"),
+                Path("root/2.txt"),
+                Path("root/3.txt"),
             },
         ),
         param(
@@ -354,14 +335,14 @@ def test_archive__archives_ls_sources(tmp_path: Path, arc_ext: str, sources: t.L
             ],
             sh.walkfiles,
             {
-                "root",
-                "root/1.txt",
-                "root/2.txt",
-                "root/3.txt",
-                "root/a/a1.txt",
-                "root/a/a2.txt",
-                "root/a/aa/aa1.txt",
-                "root/a/aa/aaa/aaa1.txt",
+                Path("root"),
+                Path("root/1.txt"),
+                Path("root/2.txt"),
+                Path("root/3.txt"),
+                Path("root/a/a1.txt"),
+                Path("root/a/a2.txt"),
+                Path("root/a/aa/aa1.txt"),
+                Path("root/a/aa/aaa/aaa1.txt"),
             },
         ),
     ],
@@ -371,12 +352,13 @@ def test_archive__archives_filtered_ls_sources(
     arc_ext: str,
     sources: t.List[Dir],
     ls_func: t.Callable[[Path], sh.Ls],
-    expected_listing: t.Set[str],
+    expected_listing: t.Set[Path],
 ):
     archive_file = tmp_path / f"archive{arc_ext}"
-    _test_archive_listing(
-        tmp_path, archive_file, *sources, iteratee=ls_func, expected_listing=expected_listing
-    )
+    _test_archive(tmp_path, archive_file, *sources, iteratee=ls_func, skip_extraction=True)
+
+    listing = set(sh.lsarchive(archive_file))
+    assert listing == expected_listing
 
 
 def test_archive__allows_extra_leading_file_extension_suffixes(tmp_path: Path, arc_ext: str):
@@ -398,8 +380,7 @@ def test_archive__raises_when_file_extension_not_supported(tmp_path: Path):
 
 
 def test_archive__raises_when_add_fails(tmp_path: Path, arc_ext: str):
-    src_dir = Dir(tmp_path / "src", File("1.txt", text="1"))
-    src_dir.mkdir()
+    src_dir = create_archive_source(tmp_path, File("1.txt", text="1"))
 
     with ExitStack() as mock_stack:
         mock_stack.enter_context(mock.patch("tarfile.TarFile.add", side_effect=Exception))
@@ -441,11 +422,9 @@ def test_archive__raises_when_add_fails(tmp_path: Path, arc_ext: str):
 def test_lsarchive__returns_list_of_archive_members(
     tmp_path: Path, arc_ext: str, source: Dir, expected: t.Set[Path]
 ):
-    src_dir = Dir(tmp_path / "src", source)
-    src_dir.mkdir()
-
     archive_file = tmp_path / f"archive{arc_ext}"
-    create_archive(archive_file, source.path)
+    src_dir = create_archive_source(tmp_path, source)
+    create_archive(archive_file, src_dir.items[0].path)
 
     listing = sh.lsarchive(archive_file)
     assert set(listing) == expected
@@ -483,11 +462,9 @@ def test_lsarchive__returns_list_of_archive_members(
 def test_lsarchive__returns_list_of_archive_members_with_explicit_extension_format(
     tmp_path: Path, arc_ext: str, source: Dir, expected: t.Set[Path]
 ):
-    src_dir = Dir(tmp_path / "src", source)
-    src_dir.mkdir()
-
     archive_file = tmp_path / "archive"
-    create_archive(archive_file, source.path, ext=arc_ext)
+    src_dir = create_archive_source(tmp_path, source)
+    create_archive(archive_file, src_dir.items[0].path, ext=arc_ext)
 
     listing = sh.lsarchive(archive_file, ext=arc_ext)
     assert set(listing) == expected
@@ -514,10 +491,8 @@ def test_unarchive__raises_when_file_extension_not_supported():
 
 
 def test_unarchive__raises_when_extraction_fails(tmp_path: Path, arc_ext: str):
-    src_dir = Dir(tmp_path / "src", File("1.txt", text="1"))
-    src_dir.mkdir()
-
     archive_file = tmp_path / "archive.tar"
+    src_dir = create_archive_source(tmp_path, File("1.txt", text="1"))
     create_archive(archive_file, src_dir.path)
 
     with ExitStack() as mock_stack:
@@ -529,8 +504,7 @@ def test_unarchive__raises_when_extraction_fails(tmp_path: Path, arc_ext: str):
 
 
 def test_unarchive__unarchives_trusted_archive_outside_target(tmp_path: Path):
-    src_dir = Dir(tmp_path / "src", File("1.txt", text="1"))
-    src_dir.mkdir()
+    src_dir = create_archive_source(tmp_path, File("1.txt", text="1"))
 
     unsafe_archive_file = tmp_path / "unsafe.tar"
     unsafe_dest = tmp_path / "unsafe"
@@ -547,8 +521,7 @@ def test_unarchive__unarchives_trusted_archive_outside_target(tmp_path: Path):
 def test_unarchive__raises_when_untrusted_archive_would_extract_outside_target(
     tmp_path: Path, arc_ext: str
 ):
-    src_dir = Dir(tmp_path / "src", File("1.txt", text="1"))
-    src_dir.mkdir()
+    src_dir = create_archive_source(tmp_path, File("1.txt", text="1"))
 
     unsafe_archive_file = tmp_path / f"unsafe{arc_ext}"
     unsafe_dest = tmp_path / "unsafe"
