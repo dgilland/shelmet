@@ -9,6 +9,7 @@ import pytest
 from pytest import param
 
 import shelmet as sh
+from shelmet.archiving import ArchiveSource
 
 from .utils import (
     ARCHIVE_EXTENSIONS,
@@ -471,6 +472,25 @@ def test_archive__raises_when_add_fails(tmp_path: Path, rep_ext: str):
 
         with pytest.raises(sh.ArchiveError):
             sh.archive(tmp_path / f"archive{rep_ext}", src_dir.path)
+
+
+@parametrize(
+    "source, expected",
+    [
+        param(ArchiveSource("a"), f"ArchiveSource(source='a', path='{sh.cwd() / 'a'}')"),
+        param(ArchiveSource(Path("a")), f"ArchiveSource(source='a', path='{sh.cwd() / 'a'}')"),
+        param(
+            ArchiveSource(sh.ls("a")),
+            f"ArchiveSource(source=Ls(path='a', recursive=False), path='{sh.cwd() / 'a'}')",
+        ),
+        param(
+            ArchiveSource(Path("a").absolute()),
+            f"ArchiveSource(source='{sh.cwd() / 'a'}', path='{sh.cwd() / 'a'}')",
+        ),
+    ],
+)
+def test_archive_source__has_repr(source, expected):
+    assert repr(source) == expected
 
 
 @parametrize(

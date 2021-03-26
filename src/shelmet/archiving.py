@@ -58,6 +58,13 @@ class ArchiveSource:
         self.path = path
         self.subpaths = subpaths
 
+    def __repr__(self) -> str:
+        if isinstance(self.source, Ls):
+            source = repr(self.source)
+        else:
+            source = f"'{self.source}'"
+        return f"{self.__class__.__name__}(source={source}, path='{self.path}')"
+
     def __iter__(self) -> t.Iterator[Path]:
         """Yield contents of archive source including the base path and its subpaths."""
         yield self.path
