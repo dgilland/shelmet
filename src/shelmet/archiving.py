@@ -45,16 +45,17 @@ class ArchiveError(Exception):
 class ArchiveSource:
     """Iterable representation of a path that should be added to an archive."""
 
-    def __init__(self, path: t.Union[StrPath, Ls]):
-        abspath = Path(path).resolve()
+    def __init__(self, source: t.Union[StrPath, Ls]):
+        path = Path(source).resolve()
         subpaths: t.Optional[Ls] = None
 
-        if isinstance(path, Ls):
-            subpaths = path
-        elif abspath.is_dir():
-            subpaths = walk(path)
+        if isinstance(source, Ls):
+            subpaths = source
+        elif path.is_dir():
+            subpaths = walk(source)
 
-        self.path = abspath
+        self.source = source
+        self.path = path
         self.subpaths = subpaths
 
     def __iter__(self) -> t.Iterator[Path]:
@@ -125,14 +126,17 @@ class BaseArchive(ABC):
             root = Path(os.path.commonpath([src.path for src in sources])).parent
 
         for source in sources:
+            try:
+                source.path.relative_to(root)
+            except ValueError:
+                raise ArchiveError(
+                    f"archive: Source paths must be a subpath of the root archive path."
+                    f" '{source.path}' is not in the subpath of '{root}'"
+                )
+
+        for source in sources:
             for path in source:
-                try:
-                    arcname = str(path.relative_to(root))
-                except ValueError:
-                    raise ArchiveError(
-                        f"archive: Source paths must be a subpath of the root archive path."
-                        f" '{path}' is not in the subpath of '{root}'"
-                    )
+                arcname = str(path.relative_to(root))
                 if arcname in EXCLUDE_ARCNAMES:
                     continue
                 self.add(path, arcname=arcname)
