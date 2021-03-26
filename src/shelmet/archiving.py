@@ -136,9 +136,9 @@ class BaseArchive(ABC):
             try:
                 source.path.relative_to(root)
             except ValueError:
-                raise ArchiveError(
-                    f"archive: Source paths must be a subpath of the root archive path."
-                    f" '{source.path}' is not in the subpath of '{root}'"
+                raise ValueError(
+                    f"Source paths must be a subpath of the root archive path. '{source.path}' is"
+                    f" not in the subpath of '{root}'"
                 )
 
         for source in sources:
@@ -336,13 +336,15 @@ def archive(
     # Use atomicfile so that archive is only created at location if there are no errors while
     # archiving all paths.
     with atomicfile(file, "wb", skip_sync=True) as fp:
-        with archive_class.open(fp, "w") as archive_file:  # type: ignore
-            try:
+        try:
+            with archive_class.open(fp, "w") as archive_file:  # type: ignore
                 archive_file.archive(*paths, root=root)
-            except Exception as exc:
-                raise ArchiveError(
-                    f"archive: Failed to create archive '{file}' due to error: {exc}", orig_exc=exc
-                ) from exc
+        except ArchiveError:  # pragma: no cover
+            raise
+        except Exception as exc:
+            raise ArchiveError(
+                f"archive: Failed to create archive '{file}' due to error: {exc}", orig_exc=exc
+            ) from exc
 
 
 def backup(
@@ -543,15 +545,15 @@ def unarchive(file: StrPath, dst: StrPath = ".", *, ext: str = "", trusted: bool
     file = Path(file)
     archive_class = _get_archive_class_or_raise(file, ext)
 
-    with archive_class.open(file, "r") as archive_file:
-        try:
+    try:
+        with archive_class.open(file, "r") as archive_file:
             archive_file.unarchive(dst, trusted=trusted)
-        except ArchiveError:
-            raise
-        except Exception as exc:
-            raise ArchiveError(
-                f"unarchive: Failed to unarchive '{file}' due to error: {exc}", orig_exc=exc
-            ) from exc
+    except ArchiveError:  # pragma: no cover
+        raise
+    except Exception as exc:
+        raise ArchiveError(
+            f"unarchive: Failed to unarchive '{file}' due to error: {exc}", orig_exc=exc
+        ) from exc
 
 
 def _get_archive_class_or_raise(file: Path, ext: str = "") -> t.Type[BaseArchive]:
