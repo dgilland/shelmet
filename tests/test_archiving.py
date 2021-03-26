@@ -398,7 +398,7 @@ def test_archive__archives_with_explicit_extension_format(tmp_path: Path, arc_ex
         )
     ],
 )
-def test_archive__archives_to_custom_root_path(
+def test_archive__uses_custom_root_path_inside_archive(
     tmp_path: Path,
     rep_ext: str,
     source: t.Union[File, Dir],
@@ -410,6 +410,121 @@ def test_archive__archives_to_custom_root_path(
 
     archive_file = tmp_path / f"archive{rep_ext}"
     sh.archive(archive_file, *(item.path for item in src_dir.items), root=root)
+    assert archive_file.is_file()
+
+    listing = set(sh.lsarchive(archive_file))
+    assert listing == expected_listing
+
+
+@parametrize(
+    "sources, paths, root, repath, expected_listing",
+    [
+        param(
+            [Dir("a", File("1.txt"), File("2.txt"), File("3.txt"))],
+            ["a"],
+            None,
+            "abc",
+            {Path("abc"), Path("abc/1.txt"), Path("abc/2.txt"), Path("abc/3.txt")},
+        ),
+        param(
+            [Dir("a", File("1.txt"), File("2.txt"), File("3.txt"))],
+            ["a"],
+            None,
+            {"a": "abc"},
+            {Path("abc"), Path("abc/1.txt"), Path("abc/2.txt"), Path("abc/3.txt")},
+        ),
+        param(
+            [
+                Dir(
+                    "a",
+                    Dir("aa1", Dir("aaa1", File("aaa1.txt")), Dir("aaa2", File("aaa2.txt"))),
+                    Dir("aa2"),
+                ),
+                Dir("b"),
+                Dir("c"),
+            ],
+            ["a", "b", "c"],
+            None,
+            {"a": "1", Path("b"): "2"},
+            {
+                Path("1"),
+                Path("1/aa1"),
+                Path("1/aa1/aaa1"),
+                Path("1/aa1/aaa1/aaa1.txt"),
+                Path("1/aa1/aaa2"),
+                Path("1/aa1/aaa2/aaa2.txt"),
+                Path("1/aa2"),
+                Path("2"),
+                Path("src/c"),
+            },
+        ),
+        param(
+            [
+                Dir(
+                    "a",
+                    Dir("aa1", Dir("aaa1", File("aaa1.txt")), Dir("aaa2", File("aaa2.txt"))),
+                    Dir("aa2"),
+                ),
+                Dir("b"),
+                Dir("c"),
+            ],
+            ["a", "b", "c"],
+            ".",
+            {"a": "1", Path("b"): "2"},
+            {
+                Path("1"),
+                Path("1/aa1"),
+                Path("1/aa1/aaa1"),
+                Path("1/aa1/aaa1/aaa1.txt"),
+                Path("1/aa1/aaa2"),
+                Path("1/aa1/aaa2/aaa2.txt"),
+                Path("1/aa2"),
+                Path("2"),
+                Path("c"),
+            },
+        ),
+        param(
+            [
+                Dir(
+                    "a",
+                    Dir("aa1", Dir("aaa1", File("aaa1.txt")), Dir("aaa2", File("aaa2.txt"))),
+                    Dir("aa2"),
+                ),
+                Dir("b"),
+                Dir("c"),
+            ],
+            [Path("a"), sh.ls("b"), sh.walk("c")],
+            ".",
+            {"a": "1", "b": "2", "c": "3"},
+            {
+                Path("1"),
+                Path("1/aa1"),
+                Path("1/aa1/aaa1"),
+                Path("1/aa1/aaa1/aaa1.txt"),
+                Path("1/aa1/aaa2"),
+                Path("1/aa1/aaa2/aaa2.txt"),
+                Path("1/aa2"),
+                Path("2"),
+                Path("3"),
+            },
+        ),
+    ],
+)
+def test_archive__repaths_paths_inside_archive(
+    tmp_path: Path,
+    rep_ext: str,
+    sources: t.List[t.Union[File, Dir]],
+    paths: t.List[t.Union[str, Path, sh.Ls]],
+    root: t.Optional[Path],
+    repath: t.Optional[t.Union[str, dict]],
+    expected_listing: t.Set[Path],
+):
+    src_dir = create_archive_source(tmp_path, *sources)
+    archive_file = tmp_path / f"archive{rep_ext}"
+
+    with sh.cd(src_dir.path):
+        sh.archive(archive_file, *paths, root=root, repath=repath)
+
     assert archive_file.is_file()
 
     listing = set(sh.lsarchive(archive_file))
@@ -444,10 +559,11 @@ def test_archive__archives_relative_paths(
     with sh.cd(src_dir.path):
         items = [item.path.relative_to(src_dir.path) for item in src_dir.items]
         sh.archive(archive_file, *items, root=root)
-        assert archive_file.is_file()
 
-        listing = set(sh.lsarchive(archive_file))
-        assert listing == expected_listing
+    assert archive_file.is_file()
+
+    listing = set(sh.lsarchive(archive_file))
+    assert listing == expected_listing
 
 
 def test_archive__raises_when_sources_are_not_subpaths_of_root_path(tmp_path: Path, rep_ext: str):
@@ -472,6 +588,25 @@ def test_archive__raises_when_add_fails(tmp_path: Path, rep_ext: str):
 
         with pytest.raises(sh.ArchiveError):
             sh.archive(tmp_path / f"archive{rep_ext}", src_dir.path)
+
+
+@parametrize(
+    "paths, repath, expected_error",
+    [
+        param(["a"], True, "repath must be a string or dict"),
+        param(
+            ["a", "b"],
+            "abc",
+            "repath must be a dict when there is more than one archive source path",
+        ),
+    ],
+)
+def test_archive__raises_when_repath_is_bad_type(
+    tmp_path: Path, paths: list, repath: t.Any, expected_error: str
+):
+    with pytest.raises(sh.ArchiveError) as exc_info:
+        sh.archive(tmp_path / "archive.tar", *paths, repath=repath)
+    assert expected_error in str(exc_info.value)
 
 
 @parametrize(

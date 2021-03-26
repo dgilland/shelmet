@@ -65,6 +65,10 @@ class ArchiveSource:
             source = f"'{self.source}'"
         return f"{self.__class__.__name__}(source={source}, path='{self.path}')"
 
+    def __str__(self) -> str:
+        """Return string representation of archive source."""
+        return str(self.source)
+
     def __iter__(self) -> t.Iterator[Path]:
         """Yield contents of archive source including the base path and its subpaths."""
         yield self.path
@@ -73,7 +77,7 @@ class ArchiveSource:
             return
 
         for subpath in self.subpaths:
-            yield Path(subpath).absolute()
+            yield Path(subpath).resolve()
 
 
 class BaseArchive(ABC):
@@ -122,9 +126,28 @@ class BaseArchive(ABC):
         """Add path to the archive non-recursively."""
         pass  # pragma: no cover
 
-    def archive(self, *paths: t.Union[StrPath, Ls], root: t.Optional[StrPath] = None) -> None:
+    def archive(
+        self,
+        *paths: t.Union[StrPath, Ls],
+        root: t.Optional[StrPath] = None,
+        repath: t.Optional[t.Union[str, t.Mapping[StrPath, StrPath]]] = None,
+    ) -> None:
         """Create the archive that contains the given source paths."""
+        if repath is None:
+            repath = {}
+
+        if isinstance(repath, str) and len(paths) > 1:
+            raise TypeError("repath must be a dict when there is more than one archive source path")
+
+        if not isinstance(repath, str) and not isinstance(repath, dict):
+            raise TypeError("repath must be a string or dict")
+
         sources = [ArchiveSource(path) for path in paths]
+
+        if isinstance(repath, str):
+            repath = {str(sources[0]): Path(repath)}
+        else:
+            repath = {str(Path(src)): Path(pth) for src, pth in repath.items()}
 
         if root:
             root = Path(root).resolve()
@@ -132,7 +155,33 @@ class BaseArchive(ABC):
             # The archive contents will be relative to the common path shared by all source paths.
             root = Path(os.path.commonpath([src.path for src in sources])).parent
 
+        # Check that source paths are valid relative to root before adding archive members.
+        self.verify_archive_root(root, sources, repath=repath)
+
         for source in sources:
+            arcpath = repath.get(str(source))
+            arcpath_offset = len(source.path.parts)
+
+            for path in source:
+                if arcpath:
+                    arcname = str(Path(arcpath, *path.parts[arcpath_offset:]))
+                else:
+                    arcname = str(path.relative_to(root))
+
+                if arcname in EXCLUDE_ARCNAMES:
+                    continue
+
+                self.add(path, arcname=arcname)
+
+    def verify_archive_root(
+        self, root: Path, sources: t.List[ArchiveSource], repath: t.Mapping
+    ) -> None:
+        """Check whether archive root path is valid for sources before adding them to an archive."""
+        for source in sources:
+            # No need to check sources that are going to be repathed since their arcname won't
+            # depend on them being relative to the root directory.
+            if str(source) in repath:
+                continue
             try:
                 source.path.relative_to(root)
             except ValueError:
@@ -140,13 +189,6 @@ class BaseArchive(ABC):
                     f"Source paths must be a subpath of the root archive path. '{source.path}' is"
                     f" not in the subpath of '{root}'"
                 )
-
-        for source in sources:
-            for path in source:
-                arcname = str(path.relative_to(root))
-                if arcname in EXCLUDE_ARCNAMES:
-                    continue
-                self.add(path, arcname=arcname)
 
     def unarchive(self, dst: StrPath, *, trusted: bool = False) -> None:
         """Extract the archive to the destination path."""
@@ -288,15 +330,27 @@ EXTENSION_ARCHIVES: t.Dict[str, t.Type[BaseArchive]] = {
 
 
 def archive(
-    file: StrPath, *paths: t.Union[StrPath, Ls], root: t.Optional[StrPath] = None, ext: str = ""
+    file: StrPath,
+    *paths: t.Union[StrPath, Ls],
+    root: t.Optional[StrPath] = None,
+    repath: t.Optional[t.Union[str, t.Mapping[StrPath, StrPath]]] = None,
+    ext: str = "",
 ) -> None:
     """
     Create an archive from the given source paths.
 
-    The source paths can be relative or absolute paths but the path names inside the archive will
-    always be relative. The paths within the archive will be determined by taking the common path
-    of all the sources and removing it from each source path so that the archive paths are all
-    relative to the shared parent path of all sources.
+    The source paths can be relative or absolute but the path names inside the archive will always
+    be relative. By default, the paths within the archive will be determined by taking the common
+    path of all the sources and removing it from each source path so that the archive paths are all
+    relative to the shared parent path of all sources. If `root` is given, it will be used in place
+    of the dynamic common path determination, but it must be a parent path common to all sources.
+
+    The archive member names of the source paths can be customized using the `repath` argument. The
+    `repath` argument is a mapping of source paths to their custom archive name. If a source path is
+    given as relative, then its repath key must also be relative. If a source path is given as
+    absolute, then its repath key must also be absolute. The repath keys/values should be either
+    strings or ``Path`` objects but they don't have to match the corresponding source path. Both the
+    keys and values will have their path separators normalized.
 
     Archives can be created in either the tar or zip format. A tar archive can use the same
     compressions that are available from ``tarfile`` which are gzipped, bzip2, and lzma. A zip
@@ -324,8 +378,11 @@ def archive(
         file: Archive file path to create.
         *paths: Source paths (files and/or directories) to archive. Directories will be recursively
             added.
-        root: When given archive member paths will be relative to this root directory. The root path
-            must be a parent directory of all source paths, otherwise, an exception will be raised.
+        root: Archive member paths will be relative to this root directory. The root path must be a
+            parent directory of all source paths, otherwise, an exception will be raised.
+        repath: A mapping of source paths to archive names that will rename the source path to the
+            mapped value within the archive. A string representing the archive member name can only
+            be used when a single source path is being added to the archive.
         ext: Specify the archive format to use by referencing the corresponding file extension
             (starting with a leading ".") instead of interfering the format from the `file`
             extension.
@@ -338,7 +395,7 @@ def archive(
     with atomicfile(file, "wb", skip_sync=True) as fp:
         try:
             with archive_class.open(fp, "w") as archive_file:  # type: ignore
-                archive_file.archive(*paths, root=root)
+                archive_file.archive(*paths, root=root, repath=repath)
         except ArchiveError:  # pragma: no cover
             raise
         except Exception as exc:
