@@ -1,8 +1,12 @@
 from contextlib import contextmanager
 import filecmp
 from pathlib import Path
+import tarfile
 import typing as t
 from unittest import mock
+import zipfile
+
+import shelmet as sh
 
 
 try:
@@ -154,3 +158,109 @@ def is_subdict(subset: dict, superset: dict) -> bool:
 
     # Assume that subset is a plain value if none of the above match.
     return subset == superset
+
+
+def extract_archive(archive_file: Path, dst: Path, ext: str = "") -> None:
+    if not ext:
+        ext = next(
+            (
+                e
+                for e in list(TAR_EXTENSIONS) + list(ZIP_EXTENSIONS)
+                if archive_file.name.endswith(e)
+            ),
+            "",
+        )
+
+    if ext in TAR_EXTENSIONS:
+        _extract_tar(archive_file, dst, ext=ext)
+    elif ext in ZIP_EXTENSIONS:
+        _extract_zip(archive_file, dst)
+    else:
+        raise ValueError(f"unrecognized archive extension: {ext}")
+
+
+def create_archive(archive_file: Path, *sources: Path, ext: str = "") -> None:
+    if not ext:
+        ext = "".join(archive_file.suffixes)
+
+    if ext in TAR_EXTENSIONS:
+        _create_tar(archive_file, *sources, ext=ext)
+    elif ext in ZIP_EXTENSIONS:
+        _create_zip(archive_file, *sources)
+    else:
+        raise ValueError(f"unrecognized archive extension: {ext}")
+
+
+def create_unsafe_archive(archive_file: Path, *sources: Path) -> None:
+    ext = "".join(archive_file.suffixes)
+
+    if ext in TAR_EXTENSIONS:
+        _create_unsafe_tar(archive_file, *sources)
+    elif ext in ZIP_EXTENSIONS:
+        _create_unsafe_zip(archive_file, *sources)
+    else:
+        raise ValueError(f"unrecognized archive extension: {ext}")
+
+
+def _extract_tar(archive_file: Path, dst: Path, ext: str = "") -> None:
+    if not ext:
+        ext = "".join(archive_file.suffixes)
+    compression = TAR_COMPRESSIONS[ext]
+    mode = f"r:{compression}"
+    with tarfile.open(archive_file, mode, format=tarfile.PAX_FORMAT) as arc:
+        arc.extractall(dst)
+
+
+def _extract_zip(archive_file: Path, dst: Path) -> None:
+    with zipfile.ZipFile(archive_file) as arc:
+        arc.extractall(dst)
+
+
+def _create_tar(archive_file: Path, *sources: Path, ext: str = "") -> None:
+    if not ext:
+        ext = "".join(archive_file.suffixes)
+    compression = TAR_COMPRESSIONS[ext]
+    mode = f"w:{compression}"
+    with tarfile.open(archive_file, mode, format=tarfile.PAX_FORMAT) as archive:
+        for src in sources:
+            archive.add(src, arcname=src.name)
+
+
+def _create_zip(archive_file: Path, *sources: Path) -> None:
+    with zipfile.ZipFile(archive_file, "w") as archive:
+        for src in sources:
+            with sh.cd(src.parent):
+                items = [src.relative_to(src.parent), *sh.walk(src.name)]
+                for item in items:
+                    archive.write(item)
+
+
+def _create_unsafe_tar(archive_file: Path, src: Path, parent_path: Path) -> None:
+    ext = "".join(archive_file.suffixes)
+    compression = TAR_COMPRESSIONS[ext]
+    mode = f"w:{compression}"
+    with tarfile.open(archive_file, mode, format=tarfile.PAX_FORMAT) as archive:
+        with sh.cd(src.parent):
+            items = [src.relative_to(src.parent)] + list(sh.walk(src.name))
+            for item in items:
+                member = archive.gettarinfo(str(item))
+                member.name = str(parent_path / member.name)
+                archive.addfile(member)
+
+
+def _create_unsafe_zip(archive_file: Path, src: Path, parent_path: Path) -> None:
+    with zipfile.ZipFile(archive_file, "w") as archive:
+        with sh.cd(src.parent):
+            items = [src.relative_to(src.parent)] + list(sh.walk(src.name))
+            for item in items:
+                member = zipfile.ZipInfo.from_file(str(item))
+                member.filename = str(parent_path / member.filename)
+                data = item.read_text() if item.is_file() else ""
+                archive.writestr(member, data=data)
+
+
+def create_archive_source(tmp_path: Path, *sources: t.Union[Dir, File]) -> Dir:
+    sources = tuple(source.clone() for source in sources)
+    src_dir = Dir(tmp_path / "src", *sources)
+    src_dir.mkdir()
+    return src_dir
