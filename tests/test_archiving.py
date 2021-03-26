@@ -171,6 +171,13 @@ def _test_unarchive(tmp_path: Path, archive_file: Path, source: t.Union[File, Di
 
 @pytest.fixture(params=ARCHIVE_EXTENSIONS)
 def arc_ext(request) -> str:
+    """Fixture that yields all archive extensions."""
+    return request.param
+
+
+@pytest.fixture(params=[".tar", ".zip"])
+def rep_ext(request) -> str:
+    """Fixture that yields a representative sample of archive extensions."""
     return request.param
 
 
@@ -392,7 +399,7 @@ def test_archive__archives_with_explicit_extension_format(tmp_path: Path, arc_ex
 )
 def test_archive__archives_to_custom_root_path(
     tmp_path: Path,
-    arc_ext: str,
+    rep_ext: str,
     source: t.Union[File, Dir],
     root: Path,
     expected_listing: t.Set[Path],
@@ -400,7 +407,7 @@ def test_archive__archives_to_custom_root_path(
     src_dir = create_archive_source(tmp_path, source)
     root = src_dir.path / root
 
-    archive_file = tmp_path / f"archive{arc_ext}"
+    archive_file = tmp_path / f"archive{rep_ext}"
     sh.archive(archive_file, *(item.path for item in src_dir.items), root=root)
     assert archive_file.is_file()
 
@@ -425,13 +432,13 @@ def test_archive__archives_to_custom_root_path(
 )
 def test_archive__archives_relative_paths(
     tmp_path: Path,
-    arc_ext: str,
+    rep_ext: str,
     source: t.Union[File, Dir],
     root: t.Optional[Path],
     expected_listing: t.Set[Path],
 ):
     src_dir = create_archive_source(tmp_path, source)
-    archive_file = tmp_path / f"archive{arc_ext}"
+    archive_file = tmp_path / f"archive{rep_ext}"
 
     with sh.cd(src_dir.path):
         items = [item.path.relative_to(src_dir.path) for item in src_dir.items]
@@ -442,8 +449,8 @@ def test_archive__archives_relative_paths(
         assert listing == expected_listing
 
 
-def test_archive__raises_when_sources_are_not_subpaths_of_root_path(tmp_path: Path, arc_ext: str):
-    archive_file = tmp_path / f"archive{arc_ext}"
+def test_archive__raises_when_sources_are_not_subpaths_of_root_path(tmp_path: Path, rep_ext: str):
+    archive_file = tmp_path / f"archive{rep_ext}"
     with pytest.raises(sh.ArchiveError) as exc_info:
         sh.archive(archive_file, tmp_path, root="bad-root")
     assert "paths must be a subpath of the root" in str(exc_info.value)
@@ -455,7 +462,7 @@ def test_archive__raises_when_file_extension_not_supported(tmp_path: Path):
     assert "format not supported" in str(exc_info.value)
 
 
-def test_archive__raises_when_add_fails(tmp_path: Path, arc_ext: str):
+def test_archive__raises_when_add_fails(tmp_path: Path, rep_ext: str):
     src_dir = create_archive_source(tmp_path, File("1.txt", text="1"))
 
     with ExitStack() as mock_stack:
@@ -463,7 +470,7 @@ def test_archive__raises_when_add_fails(tmp_path: Path, arc_ext: str):
         mock_stack.enter_context(mock.patch("zipfile.ZipFile.write", side_effect=Exception))
 
         with pytest.raises(sh.ArchiveError):
-            sh.archive(tmp_path / f"archive{arc_ext}", src_dir.path)
+            sh.archive(tmp_path / f"archive{rep_ext}", src_dir.path)
 
 
 @parametrize(
@@ -566,8 +573,8 @@ def test_unarchive__raises_when_file_extension_not_supported():
     assert "format not supported" in str(exc_info.value)
 
 
-def test_unarchive__raises_when_extraction_fails(tmp_path: Path, arc_ext: str):
-    archive_file = tmp_path / "archive.tar"
+def test_unarchive__raises_when_extraction_fails(tmp_path: Path, rep_ext: str):
+    archive_file = tmp_path / f"archive{rep_ext}"
     src_dir = create_archive_source(tmp_path, File("1.txt", text="1"))
     create_archive(archive_file, src_dir.path)
 
@@ -595,11 +602,11 @@ def test_unarchive__unarchives_trusted_archive_outside_target(tmp_path: Path):
 
 
 def test_unarchive__raises_when_untrusted_archive_would_extract_outside_target(
-    tmp_path: Path, arc_ext: str
+    tmp_path: Path, rep_ext: str
 ):
     src_dir = create_archive_source(tmp_path, File("1.txt", text="1"))
 
-    unsafe_archive_file = tmp_path / f"unsafe{arc_ext}"
+    unsafe_archive_file = tmp_path / f"unsafe{rep_ext}"
     unsafe_dest = tmp_path / "unsafe"
     create_unsafe_archive(unsafe_archive_file, src_dir.path, unsafe_dest)
 
