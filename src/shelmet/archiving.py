@@ -109,7 +109,7 @@ class BaseArchive(ABC):
 
     @classmethod
     @abstractmethod
-    def open(cls, file: t.Union[StrPath, t.BinaryIO], mode: str = "r") -> "BaseArchive":
+    def open(cls, file: t.Union[StrPath, t.IO], mode: str = "r") -> "BaseArchive":
         """Open an archive file."""
         pass  # pragma: no cover
 
@@ -133,70 +133,23 @@ class BaseArchive(ABC):
         """Add path to the archive non-recursively."""
         pass  # pragma: no cover
 
-    def archive(
-        self,
-        *paths: t.Union[StrPath, Ls],
-        root: t.Optional[StrPath] = None,
-        repath: t.Optional[t.Union[str, t.Mapping[StrPath, StrPath]]] = None,
-    ) -> None:
-        """Create the archive that contains the given source paths."""
-        if repath is None:
-            repath = {}
+    def addsource(self, source: ArchiveSource, arcname: t.Optional[StrPath] = None) -> None:
+        """Add file system contents of source to archive."""
+        if arcname:
+            arcname = Path(arcname)
 
-        if isinstance(repath, str) and len(paths) > 1:
-            raise TypeError("repath must be a dict when there is more than one archive source path")
+        root_path_offset = len(source.path.parts)
 
-        if not isinstance(repath, str) and not isinstance(repath, dict):
-            raise TypeError("repath must be a string or dict")
+        for path in source:
+            if arcname:
+                name = str(Path(arcname, *path.parts[root_path_offset:]))
+            else:  # pragma: no cover
+                name = str(path)
 
-        sources = [ArchiveSource(path) for path in paths]
-
-        if isinstance(repath, str):
-            repath = {str(sources[0]): Path(repath)}
-        else:
-            repath = {str(Path(src)): Path(pth) for src, pth in repath.items()}
-
-        if root:
-            root = Path(root).resolve()
-        else:
-            # The archive contents will be relative to the common path shared by all source paths.
-            root = Path(os.path.commonpath([src.path for src in sources])).parent
-
-        # Check that source paths are valid relative to root before adding archive members.
-        self.verify_archive_root(root, sources, repath=repath)
-
-        for source in sources:
-            arcpath = repath.get(str(source))
-            arcpath_offset = len(source.path.parts)
-
-            for path in source:
-                if arcpath:
-                    arcname = str(Path(arcpath, *path.parts[arcpath_offset:]))
-                else:
-                    arcname = str(path.relative_to(root))
-
-                if arcname in EXCLUDE_ARCNAMES:
-                    continue
-
-                self.add(path, arcname=arcname)
-
-    def verify_archive_root(
-        self, root: Path, sources: t.List[ArchiveSource], repath: t.Mapping
-    ) -> None:
-        """Check whether archive root path is valid for sources before adding them to an archive."""
-        for source in sources:
-            # No need to check sources that are going to be repathed since their arcname won't
-            # depend on them being relative to the root directory.
-            if str(source) in repath:
+            if name in EXCLUDE_ARCNAMES:
                 continue
-            try:
-                source.path.relative_to(root)
-            except ValueError:
-                raise ValueError(
-                    f"Source paths must be a subpath of the root archive path. '{source.path}' is"
-                    f" not in the subpath of '{root}'"
-                )
 
+            self.add(path, arcname=name)
 
 
 class ZipArchive(BaseArchive):
@@ -205,7 +158,7 @@ class ZipArchive(BaseArchive):
     backend: zipfile.ZipFile
 
     @classmethod
-    def open(cls, file: t.Union[StrPath, t.BinaryIO], mode: str = "r") -> "ZipArchive":
+    def open(cls, file: t.Union[StrPath, t.IO], mode: str = "r") -> "ZipArchive":
         """Open an archive file."""
         return cls(zipfile.ZipFile(file, mode, compression=DEFAULT_ZIP_COMPRESSION))
 
@@ -239,7 +192,7 @@ class TarArchive(BaseArchive):
     compression = ""
 
     @classmethod
-    def open(cls, file: t.Union[StrPath, t.BinaryIO], mode: str = "r") -> "TarArchive":
+    def open(cls, file: t.Union[StrPath, t.IO], mode: str = "r") -> "TarArchive":
         """Open an archive file."""
         if mode == "w" and cls.compression:
             mode = f"{mode}:{cls.compression}"
@@ -377,18 +330,47 @@ def archive(
     file = Path(file)
     archive_class = _get_archive_class_or_raise(file, ext)
 
+    if repath is None:
+        repath = {}
+
+    if isinstance(repath, str) and len(paths) > 1:
+        raise TypeError("repath must be a dict when there is more than one archive source path")
+
+    if not isinstance(repath, str) and not isinstance(repath, dict):
+        raise TypeError("repath must be a string or dict")
+
+    sources = [ArchiveSource(path) for path in paths]
+
+    if isinstance(repath, str):
+        repath = {str(sources[0]): Path(repath)}
+    else:
+        repath = {str(Path(src)): Path(pth) for src, pth in repath.items()}
+
+    if root:
+        root = Path(root).resolve()
+    else:
+        # The archive contents will be relative to the common path shared by all source paths.
+        root = Path(os.path.commonpath([src.path for src in sources])).parent
+
+    # Check that source paths are valid relative to root before adding archive members. No need to
+    # check sources that are going to be repathed since their arcname won't depend on them being
+    # relative to the root directory.
+    _verify_archive_root(root, [source for source in sources if str(source) not in repath])
+
     # Use atomicfile so that archive is only created at location if there are no errors while
     # archiving all paths.
     with atomicfile(file, "wb", skip_sync=True) as fp:
-        try:
-            with archive_class.open(fp, "w") as archive_file:  # type: ignore
-                archive_file.archive(*paths, root=root, repath=repath)
-        except ArchiveError:  # pragma: no cover
-            raise
-        except Exception as exc:
-            raise ArchiveError(
-                f"archive: Failed to create archive '{file}' due to error: {exc}", orig_exc=exc
-            ) from exc
+        with archive_class.open(fp, "w") as archive_file:
+            try:
+                for source in sources:
+                    arcname = repath.get(str(source))
+                    if arcname is None:
+                        arcname = str(source.path.relative_to(root))
+                    archive_file.addsource(source, arcname=arcname)
+            except Exception as exc:
+                raise ArchiveError(
+                    f"archive: Failed to create archive '{file}' due to error: {exc}", orig_exc=exc
+                ) from exc
 
 
 def backup(
@@ -624,6 +606,18 @@ def _get_archive_class(file: Path, ext: str = "") -> t.Optional[t.Type[BaseArchi
         )
 
     return archive_class
+
+
+def _verify_archive_root(root: Path, sources: t.List[ArchiveSource]) -> None:
+    """Check whether archive root path is valid for sources before adding them to an archive."""
+    for source in sources:
+        try:
+            source.path.relative_to(root)
+        except ValueError:
+            raise ValueError(
+                f"Source paths must be a subpath of the root archive path. '{source.path}' is"
+                f" not in the subpath of '{root}'"
+            )
 
 
 def _verify_archive_safety(archive_file: BaseArchive, dst: StrPath) -> None:

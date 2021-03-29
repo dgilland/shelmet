@@ -448,7 +448,7 @@ def test_archive__archives_relative_paths(
 
 def test_archive__raises_when_sources_are_not_subpaths_of_root_path(tmp_path: Path, rep_ext: str):
     archive_file = tmp_path / f"archive{rep_ext}"
-    with pytest.raises(sh.ArchiveError) as exc_info:
+    with pytest.raises(ValueError) as exc_info:
         sh.archive(archive_file, tmp_path, root="bad-root")
     assert "paths must be a subpath of the root" in str(exc_info.value)
 
@@ -484,7 +484,7 @@ def test_archive__raises_when_add_fails(tmp_path: Path, rep_ext: str):
 def test_archive__raises_when_repath_is_bad_type(
     tmp_path: Path, paths: list, repath: t.Any, expected_error: str
 ):
-    with pytest.raises(sh.ArchiveError) as exc_info:
+    with pytest.raises(TypeError) as exc_info:
         sh.archive(tmp_path / "archive.tar", *paths, repath=repath)
     assert expected_error in str(exc_info.value)
 
