@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 from datetime import datetime, timezone
 import errno
 import os
-from pathlib import Path
+from pathlib import Path, PurePath
 import tarfile
 from types import TracebackType
 import typing as t
@@ -516,7 +516,7 @@ def _backup_namer(
     return dst
 
 
-def lsarchive(file: StrPath, ext: str = "") -> t.List[Path]:
+def lsarchive(file: StrPath, ext: str = "") -> t.List[PurePath]:
     """
     Return list of member paths contained in archive file.
 
@@ -529,7 +529,7 @@ def lsarchive(file: StrPath, ext: str = "") -> t.List[Path]:
     file = Path(file)
     archive_class = _get_archive_class_or_raise(file, ext)
     with archive_class.open(file, "r") as archive_file:
-        return [Path(item) for item in archive_file.list()]
+        return [PurePath(item) for item in archive_file.list()]
 
 
 def unarchive(file: StrPath, dst: StrPath = ".", *, ext: str = "", trusted: bool = False) -> None:
