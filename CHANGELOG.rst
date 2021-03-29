@@ -2,7 +2,7 @@ Changelog
 =========
 
 
-vX.Y.Z (YYYY-MM-DD)
+v0.6.0 (2021-03-29)
 -------------------
 
 - Change return type for ``ls``, ``lsfiles``, ``lsdirs``, ``walk``, ``walkfiles``, and ``walkdirs`` to an iterable class, ``Ls``. Previously, these functions were generators.

@@ -4,7 +4,7 @@ The shelmet package.
 A shell power-up for working with the file system and running subprocess commands.
 """
 
-__version__ = "0.5.0"
+__version__ = "0.6.0"
 
 from .archiving import ArchiveError, UnsafeArchiveError, archive, backup, lsarchive, unarchive
 from .command import Command, cmd, run
