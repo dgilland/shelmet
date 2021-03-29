@@ -42,6 +42,13 @@ class ArchiveError(Exception):
         self.orig_exc = orig_exc
 
 
+class UnsafeArchiveError(ArchiveError):
+    """Unsafe archive exception raised when an untrusted archive would extract contents outside of
+    the destination directory."""
+
+    pass
+
+
 class ArchiveSource:
     """Iterable representation of a path that should be added to an archive."""
 
@@ -205,7 +212,7 @@ class BaseArchive(ABC):
         for name in self.list():
             extraction_path = (dst / name).resolve()
             if not str(extraction_path).startswith(safe_path_prefix):
-                raise ArchiveError(
+                raise UnsafeArchiveError(
                     f"unarchive: Archive has member '{name}' whose destination is outside the"
                     f" target directory '{dst}' and cannot be extracted unless it is designated as"
                     f" originating from a trusted source with 'trusted=True`."

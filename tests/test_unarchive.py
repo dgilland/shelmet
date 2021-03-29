@@ -103,7 +103,7 @@ def test_unarchive__raises_when_untrusted_archive_would_extract_outside_target(
     create_unsafe_archive(unsafe_archive_file, src_dir.path, unsafe_dest)
 
     dst_path = tmp_path / "dst"
-    with pytest.raises(sh.ArchiveError) as exc_info:
+    with pytest.raises(sh.UnsafeArchiveError) as exc_info:
         sh.unarchive(unsafe_archive_file, dst_path)
 
     assert "destination is outside the target directory" in str(exc_info.value)
