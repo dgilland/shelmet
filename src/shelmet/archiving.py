@@ -607,7 +607,7 @@ def _get_archive_class_or_raise(file: Path, ext: str = "") -> t.Type[BaseArchive
     none found."""
     archive_class = _get_archive_class(file, ext=ext)
     if not archive_class:
-        raise ArchiveError(f"Archive format not supported: {ext!r}")
+        raise NotImplementedError(f"Archive format not supported: {ext!r}")
     return archive_class
 
 

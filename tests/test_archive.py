@@ -454,7 +454,7 @@ def test_archive__raises_when_sources_are_not_subpaths_of_root_path(tmp_path: Pa
 
 
 def test_archive__raises_when_file_extension_not_supported(tmp_path: Path):
-    with pytest.raises(sh.ArchiveError) as exc_info:
+    with pytest.raises(NotImplementedError) as exc_info:
         sh.archive(tmp_path / "test.txt")
     assert "format not supported" in str(exc_info.value)
 

@@ -60,7 +60,7 @@ def test_unarchive__unarchives_with_explicit_extension_format(tmp_path: Path, ar
 
 
 def test_unarchive__raises_when_file_extension_not_supported():
-    with pytest.raises(sh.ArchiveError) as exc_info:
+    with pytest.raises(NotImplementedError) as exc_info:
         sh.unarchive("test.txt")
     assert "format not supported" in str(exc_info.value)
 
