@@ -6,6 +6,7 @@ vX.Y.Z (YYYY-MM-DD)
 -------------------
 
 - Change return type for ``ls``, ``lsfiles``, ``lsdirs``, ``walk``, ``walkfiles``, and ``walkdirs`` to an iterable class, ``Ls``. Previously, these functions were generators.
+- Add option to backup to an archive file in ``backup``.
 - Add functions:
 
   - ``archive``
