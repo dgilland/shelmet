@@ -197,26 +197,6 @@ class BaseArchive(ABC):
                     f" not in the subpath of '{root}'"
                 )
 
-    def unarchive(self, dst: StrPath, *, trusted: bool = False) -> None:
-        """Extract the archive to the destination path."""
-        if not trusted:
-            self.verify_unarchive_safety(dst)
-        self.extractall(dst)
-
-    def verify_unarchive_safety(self, dst: StrPath) -> None:
-        """Check whether the archive contains paths that would be extracted outside the target path
-        and raise an exception if it would."""
-        dst = Path(dst).resolve()
-        safe_path_prefix = str(dst)
-
-        for name in self.list():
-            extraction_path = (dst / name).resolve()
-            if not str(extraction_path).startswith(safe_path_prefix):
-                raise UnsafeArchiveError(
-                    f"unarchive: Archive has member '{name}' whose destination is outside the"
-                    f" target directory '{dst}' and cannot be extracted unless it is designated as"
-                    f" originating from a trusted source with 'trusted=True`."
-                )
 
 
 class ZipArchive(BaseArchive):
@@ -611,7 +591,9 @@ def unarchive(file: StrPath, dst: StrPath = ".", *, ext: str = "", trusted: bool
 
     try:
         with archive_class.open(file, "r") as archive_file:
-            archive_file.unarchive(dst, trusted=trusted)
+            if not trusted:
+                _verify_archive_safety(archive_file, dst)
+            archive_file.extractall(dst)
     except ArchiveError:  # pragma: no cover
         raise
     except Exception as exc:
@@ -642,3 +624,19 @@ def _get_archive_class(file: Path, ext: str = "") -> t.Optional[t.Type[BaseArchi
         )
 
     return archive_class
+
+
+def _verify_archive_safety(archive_file: BaseArchive, dst: StrPath) -> None:
+    """Check whether the archive contains paths that would be extracted outside the target path and
+    raise an exception if it would."""
+    dst = Path(dst).resolve()
+    safe_path_prefix = str(dst)
+
+    for name in archive_file.list():
+        extraction_path = (dst / name).resolve()
+        if not str(extraction_path).startswith(safe_path_prefix):
+            raise UnsafeArchiveError(
+                f"unarchive: Archive has member '{name}' whose destination is outside the"
+                f" target directory '{dst}' and cannot be extracted unless it is designated as"
+                f" originating from a trusted source with 'trusted=True`."
+            )
