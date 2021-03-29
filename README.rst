@@ -27,8 +27,8 @@ Features
 - Interact with files
 
   - ``atomicdfile``, ``atomicdir``
-  - ``read``, ``readchunks``, ``readlines``
-  - ``write``, ``writechunks``
+  - ``read``, ``readchunks``, ``readlines``, ``readtext``, ``readbytes``
+  - ``write``, ``writechunks``, ``writelines``, ``writetext``, ``writebytes``
   - ``fsync``, ``dirsync``
 
 - Execute core shell operations
@@ -38,9 +38,13 @@ Features
   - ``ls``, ``lsfiles``, ``lsdirs``
   - ``walk``, ``walkfiles``, ``walkdirs``
 
+- Archive and backup files
+
+  - ``archive``, ``unarchive``, ``lsarchive``
+  - ``backup``
+
 - Other utilities
 
-  - ``backup``
   - ``cd``
   - ``environ``
   - ``cwd``, ``homedir``
@@ -75,8 +79,8 @@ Run system commands:
 
     # sh.run() is a wrapper around subprocess.run() that defaults to output capture, text-mode,
     # exception raising on non-zero exit codes, environment variable extension instead of
-    # replacement, and support for passing command arguments as a variable number of strings instead
-    # of just a list of strings.
+    # replacement, and support for passing command arguments as a variable number of strings
+    # instead of just a list of strings.
     result = sh.run("ps", "aux")
     print(result.stdout)
     print(result.stderr)
@@ -170,7 +174,7 @@ Perform file IO:
     sh.write("test.bin", b" some more bytes", "ab")
 
     sh.writelines("output.txt", ["1", "2", "3"])              # -> "1\n2\n3\n"
-    sh.writelines("output.txt", (str(i) for i in range(10)))  # -> "0\n1\n2\n3\n4\n5\n6\n7\n8\n9\n"
+    sh.writelines("output.txt", (str(i) for i in range(5)))  # -> "0\n1\n2\n3\n4\n"
 
     # Write to a file atomically. See sh.atomicfile for more details.
     sh.write("test.txt", "content", atomic=True)
@@ -198,22 +202,22 @@ Backup files:
 .. code-block:: python
 
     # Create backup as copy of file.
-    backup_file = sh.backup("test.txt")
-    print(backup_file)                                     # test.txt.2021-02-24T16:19:20.276491~
-    sh.backup("test.txt", utc=True)                        # test.txt.2021-02-24T11:19:20.276491Z~
-    sh.backup("test.txt", epoch=True)                      # test.txt.1614878783.56201
-    sh.backup("test.txt", suffix=".bak")                   # test.txt.2021-02-24T16:19:20.276491.bak
-    sh.backup("test.txt", suffix=".bak", timestamp=False)  # test.txt.bak
-    sh.backup("test.txt", prefix="BACKUP_", suffix="")     # BACKUP_test.txt.2021-02-24T16:19:20.276491
+    backup_file = sh.backup("a.txt")
+    print(backup_file)                                  # a.txt.2021-02-24T16:19:20.276491~
+    sh.backup("a.txt", utc=True)                        # a.txt.2021-02-24T11:19:20.276491Z~
+    sh.backup("a.txt", epoch=True)                      # a.txt.1614878783.56201
+    sh.backup("a.txt", suffix=".bak")                   # a.txt.2021-02-24T16:19:20.276491.bak
+    sh.backup("a.txt", suffix=".bak", timestamp=False)  # a.txt.bak
+    sh.backup("a.txt", prefix="BACKUP_", suffix="")     # BACKUP_a.txt.2021-02-24T16:19:20.276491
 
     # Create backup as copy of directory.
-    sh.backup("path/to/dir")                              # path/to/dir.2021-02-24T16:19:20.276491~
+    sh.backup("path/to/dir")                            # path/to/dir.2021-02-24T16:19:20.276491~
 
     # Create backup as archive of file or directory.
-    sh.backup("path/to/dir", ext=".tar.gz")               # path/to/dir.2021-02-24T16:19:20.276491.tar.gz
-    sh.backup("path/to/dir", ext=".tar.bz2")              # path/to/dir.2021-02-24T16:19:20.276491.tar.bz2
-    sh.backup("path/to/dir", ext=".tar.xz")               # path/to/dir.2021-02-24T16:19:20.276491.tar.xz
-    sh.backup("path/to/dir", ext=".zip")                  # path/to/dir.2021-02-24T16:19:20.276491.zip
+    sh.backup("b/c", ext=".tar.gz")                    # b/c.2021-02-24T16:19:20.276491.tar.gz
+    sh.backup("b/c", ext=".tar.bz2")                   # b/c.2021-02-24T16:19:20.276491.tar.bz2
+    sh.backup("b/c", ext=".tar.xz")                    # b/c.2021-02-24T16:19:20.276491.tar.xz
+    sh.backup("b/c", ext=".zip")                       # b/c.2021-02-24T16:19:20.276491.zip
 
     from functools import partial
     import itertools
@@ -223,6 +227,70 @@ Backup files:
     backup("test.txt")  # test.txt-1~
     backup("test.txt")  # test.txt-2~
     backup("test.txt")  # test.txt-3~
+
+
+Archive files:
+
+.. code-block:: python
+
+    # Create tar, tar-gz, tar-bz2, tar-xz, or zip archives.
+    sh.archive("archive.tar.gz", "/path/to/foo", "/path/to/bar")
+
+    # Archive type is inferred from extension in filename but can be explicitly set.
+    sh.archive("archive", "path", ext=".tbz")
+
+    # Files can be filtered with ls, lsfiles, lsdirs, walk, walkfiles, and walkdirs functions.
+    sh.archive(
+        "archive.tgz",
+        sh.walk("path", include="*.py"),
+         sh.walk("other/path", exclude="*.log"),
+     )
+
+    # Archive paths can be customized with root and repath arguments.
+    # root changes the base path for archive members.
+    sh.archive("archive.txz", "/a/b/c/1", "/a/b/d/2", root="/a/b")
+    # -> archive members will be "c/1/*" and "d/2/*"
+    # -> without root, they would be "b/c/1/*" and "b/d/2/*"
+
+    # repath renames paths.
+    sh.archive("archive.zip", "/a/b/c", "/a/b/d", repath={"/a/b/c": "foo/bar"})
+    # -> archive members: "foo/bar/*" and "b/d/*"
+
+    # repath also works with ls* and walk* by matching on the base path.
+    sh.archive(
+        "log-dump.taz",
+        sh.walk("path/to/logs", include="*.log*"),
+        repath={"path/to/logs": "logs"},
+    )
+
+
+Get list of archive contents:
+
+.. code-block:: python
+
+    # Get list of archive contents as PurePath objects.
+    listing = sh.lsarchive("archive.tgz")
+
+    # Use an explicit extension when archive doesn't have one but is supported.
+    listing = sh.lsarchive("archive", ext=".tgz")
+
+
+Unarchive tar and zip based archives:
+
+.. code-block:: python
+
+    # Extract tar, tar-gz, tar-bz2, tar-xz, or zip archives to directory.
+    sh.unarchive("archive.tgz", "out/dir")
+
+    # Potentially unsafe archives will raise an exception if the extraction path falls outside
+    # the destination, e.g., when the archive contains absolute paths.
+    try:
+        sh.unarchive("unsafe-archive.tz2", "out")
+    except sh.ArchiveError:
+        pass
+
+    # But if an archive can be trusted...
+    sh.unarchive("unsafe-archive.tz2", "out")
 
 
 Write to a new file atomically where content is written to a temporary file and then moved once finished:
@@ -240,11 +308,13 @@ Write to a new file atomically where content is written to a temporary file and 
         # File doesn't exist yet.
         assert not os.path.exists("path/to/atomic.txt")
 
-    # Exiting context manager will result in the temporary file being atomically moved to destination.
-    # This will also result in a lower-level fsync on the destination file and directory.
+    # Exiting context manager will result in the temporary file being atomically moved to
+    # destination. This will also result in a lower-level fsync on the destination file and
+    # directory.
     assert os.path.exists("path/to/atomic.txt")
 
-    # File mode, sync skipping, and overwrite flag can be specified to change the default behavior which is...
+    # File mode, sync skipping, and overwrite flag can be specified to change the default
+    # behavior which is...
     with sh.atomicfile("file.txt", "w", skip_sync=False, overwrite=True) as fp:
         pass
 
@@ -264,7 +334,9 @@ Create a new directory atomically where its contents are written to a temporary 
         # Yielded path is temporary directory within the same parent directory as the destination.
         # path will be something like "path/to/.atomic_dir_QGLDfPwz_tmp"
         some_file = atomic_dir / "file.txt"
-        some_file.write_text("contents")  # file written to "path/to/.atomic_dir_QGLDfPwz_tmp/file.txt"
+
+        # file written to "path/to/.atomic_dir_QGLDfPwz_tmp/file.txt"
+        some_file.write_text("contents")
 
         some_dir = atomic_dir / "dir"
         some_dir.mkdir()  # directory created at "path/to/.atomic_dir_QGLDfPwz_tmp/dir/"
@@ -272,7 +344,7 @@ Create a new directory atomically where its contents are written to a temporary 
         # Directory doesn't exist yet.
         assert not os.path.exists("path/to/atomic_dir")
 
-    # Exiting context manager will result in the temporary directory being atomically moved to destination.
+    # Exiting context manager will atomically move the the temporary directory to the destination.
     assert os.path.exists("path/to/atomic_dir")
 
     # Sync skipping and overwrite flag can be specified to change the default behavior which is...
@@ -285,14 +357,14 @@ Temporarily change environment variables:
 .. code-block:: python
 
     # Extend existing environment.
-    with sh.environ({"KEY1": "value1", "KEY2": "value2"}) as new_environ:
+    with sh.environ({"KEY1": "val1", "KEY2": "val2"}) as new_environ:
         # Do something while environment changed.
-        # Environment variables include all previous ones and {"KEY1": "value1", "KEY2": "value2"}.
+        # Environment variables include all previous ones and {"KEY1": "val1", "KEY2": "val2"}.
         pass
 
     # Replace the entire environment with a new one.
-    with sh.environ({"KEY": "value"}, replace=True):
-        # Environment variables are replaced and are now just {"KEY": "value"}.
+    with sh.environ({"KEY": "val"}, replace=True):
+        # Environment variables are replaced and are now just {"KEY": "val"}.
         pass
 
 
