@@ -160,7 +160,7 @@ class ZipArchive(BaseArchive):
     @classmethod
     def open(cls, file: t.Union[StrPath, t.IO], mode: str = "r") -> "ZipArchive":
         """Open an archive file."""
-        return cls(zipfile.ZipFile(file, mode, compression=DEFAULT_ZIP_COMPRESSION))
+        return cls(zipfile.ZipFile(file, mode, compression=DEFAULT_ZIP_COMPRESSION))  # type: ignore
 
     def close(self):
         """Close the archive file."""
