@@ -196,7 +196,7 @@ texinfo_documents = [
 # -- Extension configuration -------------------------------------------------
 
 # Configure autodocsumm
-autodoc_default_options = {"autosummary": True}
+autodoc_default_options = {"autosummary": True, "autosummary-nosignatures": True}
 
 # Patch autodocsumm's add_autosummary method to disable signature output in summary tables.
 from autodocsumm import AutosummaryDocumenter
