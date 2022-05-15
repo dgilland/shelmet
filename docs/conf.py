@@ -197,23 +197,3 @@ texinfo_documents = [
 
 # Configure autodocsumm
 autodoc_default_options = {"autosummary": True, "autosummary-nosignatures": True}
-
-# Patch autodocsumm's add_autosummary method to disable signature output in summary tables.
-from autodocsumm import AutosummaryDocumenter
-def add_autosummary(self):
-    if self.options.autosummary:
-        grouped_documenters = self.get_grouped_documenters()
-        sourcename = self.get_sourcename()
-        for section, documenters in grouped_documenters.items():
-            if not self.options.autosummary_no_titles:
-                self.add_line('**%s:**' % section, sourcename)
-            self.add_line('', sourcename)
-            self.add_line('.. autosummary::', sourcename)
-            self.add_line('    :nosignatures:', sourcename)  # nosignatures patch
-            self.add_line('', sourcename)
-            indent = '    '
-            for (documenter, _) in documenters:
-                self.add_line(
-                    indent + '~' + documenter.fullname, sourcename)
-            self.add_line('', sourcename)
-AutosummaryDocumenter.add_autosummary = add_autosummary
