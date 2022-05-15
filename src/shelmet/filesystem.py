@@ -435,7 +435,8 @@ def fsync(fd: t.Union[t.IO, int]) -> None:
 
     if hasattr(fcntl, "F_FULLFSYNC"):  # pragma: no cover
         # Necessary for MacOS to do proper fsync: https://bugs.python.org/issue11877
-        fcntl.fcntl(fileno, fcntl.F_FULLFSYNC)  # pylint: disable=no-member
+        # pylint: disable=no-member
+        fcntl.fcntl(fileno, fcntl.F_FULLFSYNC)  # type: ignore
     else:  # pragma: no cover
         os.fsync(fileno)
 
