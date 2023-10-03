@@ -375,7 +375,7 @@ For more details, please see the full documentation at https://shelmet.readthedo
 .. |version| image:: https://img.shields.io/pypi/v/shelmet.svg?style=flat-square
     :target: https://pypi.python.org/pypi/shelmet/
 
-.. |build| image:: https://img.shields.io/github/workflow/status/dgilland/shelmet/Main/master?style=flat-square
+.. |build| image:: https://img.shields.io/github/actions/workflow/status/dgilland/shelmet/main.yml?branch=master&style=flat-square
     :target: https://github.com/dgilland/shelmet/actions
 
 .. |coveralls| image:: https://img.shields.io/coveralls/dgilland/shelmet/master.svg?style=flat-square
