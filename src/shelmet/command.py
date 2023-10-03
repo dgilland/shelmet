@@ -622,6 +622,7 @@ def run(
 
         result = sh.cmd(*args, **kwargs).run()
 
+
     See Also:
         :class:`.Command` for description of arguments.
     """
